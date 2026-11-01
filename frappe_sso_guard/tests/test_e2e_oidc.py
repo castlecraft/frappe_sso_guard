@@ -12,6 +12,34 @@ class TestEndToEndOIDC(unittest.TestCase):
 		self.issuer = "http://dex.localhost:5556/dex"
 		frappe.flags.oidc_session_authorized = False
 
+		# Ensure test Social Login Key exists
+		if not frappe.db.exists("Social Login Key", "dex_local"):
+			frappe.get_doc(
+				{
+					"doctype": "Social Login Key",
+					"custom_base_url": 1,
+					"enable_social_login": 1,
+					"social_login_provider": "Custom",
+					"name": "dex_local",
+					"provider_name": "dex_local",
+					"client_id": "frappe-client",
+					"client_secret": "frappe-secret",
+					"base_url": "http://dex.localhost:5556/dex",
+					"authorize_url": "http://dex.localhost:5556/dex/auth",
+					"access_token_url": "http://dex.localhost:5556/dex/token",
+					"redirect_url": "/api/method/frappe_sso_guard.api.callback.handle_callback",
+					"auth_url_data": '{"response_type": "code", "scope": "openid email profile"}',
+				}
+			).insert(ignore_permissions=True)
+			frappe.db.commit()
+
+		# Ensure SSO Identity Settings points to dex_local
+		settings = frappe.get_doc("SSO Identity Settings")
+		settings.social_login_key = "dex_local"
+		settings.idp_type = "Generic OIDC"
+		settings.save(ignore_permissions=True)
+		frappe.db.commit()
+
 	def tearDown(self):
 		frappe.flags.oidc_session_authorized = False
 
