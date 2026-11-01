@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "creation": "2026-11-01 11:27:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "timestamp",
+  "event_type",
+  "status",
+  "user",
+  "idp_identifier",
+  "ip_address",
+  "details"
+ ],
+ "fields": [
+  {
+   "default": "now",
+   "fieldname": "timestamp",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Timestamp",
+   "reqd": 1
+  },
+  {
+   "fieldname": "event_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Event Type",
+   "options": "Login Success\nSession Refused\nAdmin CLI Bypass\nUser Bound\nEmail Changed\nAPI Key Alert\nUser Created",
+   "reqd": 1
+  },
+  {
+   "default": "Success",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Success\nWarning\nRefused\nError",
+   "reqd": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "User",
+   "options": "User"
+  },
+  {
+   "fieldname": "idp_identifier",
+   "fieldtype": "Data",
+   "label": "IdP Identifier (sub / oid:tid)"
+  },
+  {
+   "fieldname": "ip_address",
+   "fieldtype": "Data",
+   "label": "IP Address"
+  },
+  {
+   "fieldname": "details",
+   "fieldtype": "Code",
+   "label": "Event Details (JSON)",
+   "options": "JSON"
+  }
+ ],
+ "links": [],
+ "modified": "2026-11-01 11:27:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe SSO Guard",
+ "name": "SSO Identity Assignment Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 0
+  }
+ ],
+ "sort_field": "timestamp",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

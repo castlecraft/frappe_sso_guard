@@ -1,0 +1,114 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"header\",\"type\":\"header\",\"data\":{\"text\":\"SSO Guard Administration\",\"level\":4}},{\"id\":\"shortcuts\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SSO Identity Settings\",\"col\":4}},{\"id\":\"shortcuts_2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"SSO Identity Assignment Log\",\"col\":4}},{\"id\":\"shortcuts_3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Social Login Key\",\"col\":4}},{\"id\":\"spacer\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"card_settings\",\"type\":\"card\",\"data\":{\"card_name\":\"Configuration & Settings\",\"col\":6}},{\"id\":\"card_audit\",\"type\":\"card\",\"data\":{\"card_name\":\"Audit & Monitoring\",\"col\":6}}]",
+ "creation": "2026-11-01 12:45:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "shield",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "SSO Guard",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuration & Settings",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SSO Identity Settings",
+   "link_count": 0,
+   "link_to": "SSO Identity Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Social Login Key",
+   "link_count": 0,
+   "link_to": "Social Login Key",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Audit & Monitoring",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "SSO Identity Assignment Log",
+   "link_count": 0,
+   "link_to": "SSO Identity Assignment Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "User List",
+   "link_count": 0,
+   "link_to": "User",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-11-01 12:45:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe SSO Guard",
+ "name": "SSO Guard",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 1.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "Form",
+   "label": "SSO Identity Settings",
+   "link_to": "SSO Identity Settings",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "SSO Identity Assignment Log",
+   "link_to": "SSO Identity Assignment Log",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Social Login Key",
+   "link_to": "Social Login Key",
+   "type": "DocType"
+  }
+ ],
+ "title": "SSO Guard"
+}

@@ -1,0 +1,30 @@
+# ==============================================================================
+# Dex OIDC Local Development Service Snippet
+# ==============================================================================
+# Add this service to your devcontainer docker-compose.yml to run a lightweight,
+# standard OIDC Identity Provider locally for testing frappe_sso_guard.
+#
+# Issuer URL: http://dex.localhost:5556/dex
+# Mock Credentials:
+#   - sso-admin@example.org / password
+#   - caseworker@example.org / password
+#   - supervisor@example.org / password
+# ==============================================================================
+
+version: "3.8"
+
+services:
+  # 1. Dex OIDC Provider Service
+  oidc-provider:
+    image: dexidp/dex:v2.41.1
+    container_name: frappe_sso_dex
+    ports:
+      - "5556:5556"
+    volumes:
+      - ./apps/frappe_sso_guard/dev/dex/config.yml:/etc/dex/config.docker.yaml:ro
+    restart: unless-stopped
+
+  # 2. Add extra_hosts mapping to your Frappe devcontainer service so it resolves dex.localhost:
+  # devcontainer:
+  #   extra_hosts:
+  #     - "dex.localhost:host-gateway"

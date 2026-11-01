@@ -1,0 +1,120 @@
+{
+ "actions": [],
+ "creation": "2026-11-01 11:27:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "sso_config_section",
+  "enable_sso_guard",
+  "social_login_key",
+  "idp_type",
+  "session_policy_section",
+  "session_max_hours",
+  "enable_single_logout",
+  "inactivity_policy_section",
+  "inactivity_months",
+  "enable_reconciliation",
+  "admin_notifications_section",
+  "admin_notification_emails"
+ ],
+ "fields": [
+  {
+   "fieldname": "sso_config_section",
+   "fieldtype": "Section Break",
+   "label": "OIDC Identity Configuration"
+  },
+  {
+   "default": "1",
+   "description": "Enforce strict OIDC Single Sign-On and session guard",
+   "fieldname": "enable_sso_guard",
+   "fieldtype": "Check",
+   "label": "Enable SSO Guard"
+  },
+  {
+   "description": "Select the Social Login Key used for OIDC authentication",
+   "fieldname": "social_login_key",
+   "fieldtype": "Link",
+   "label": "Social Login Key",
+   "options": "Social Login Key"
+  },
+  {
+   "default": "Keycloak",
+   "description": "Identity provider type: Keycloak (uses 'sub') or Entra ID (uses 'oid' + 'tid')",
+   "fieldname": "idp_type",
+   "fieldtype": "Select",
+   "label": "Identity Provider Type",
+   "options": "Keycloak\nEntra ID\nGeneric OIDC"
+  },
+  {
+   "fieldname": "session_policy_section",
+   "fieldtype": "Section Break",
+   "label": "Session Expiry & Lifecycle"
+  },
+  {
+   "default": "12",
+   "description": "Absolute maximum session lifetime in hours",
+   "fieldname": "session_max_hours",
+   "fieldtype": "Int",
+   "label": "Session Max Lifetime (Hours)"
+  },
+  {
+   "default": "1",
+   "description": "Redirect to Identity Provider end_session_endpoint upon Frappe logout",
+   "fieldname": "enable_single_logout",
+   "fieldtype": "Check",
+   "label": "Enable Single Logout (SLO)"
+  },
+  {
+   "fieldname": "inactivity_policy_section",
+   "fieldtype": "Section Break",
+   "label": "Deprovisioning & Reports"
+  },
+  {
+   "default": "6",
+   "description": "Months of inactivity before including user in the monthly deprovisioning report",
+   "fieldname": "inactivity_months",
+   "fieldtype": "Int",
+   "label": "Inactivity Threshold (Months)"
+  },
+  {
+   "default": "0",
+   "description": "Enable reconciliation job to verify user status in IdP",
+   "fieldname": "enable_reconciliation",
+   "fieldtype": "Check",
+   "label": "Enable Reconciliation"
+  },
+  {
+   "fieldname": "admin_notifications_section",
+   "fieldtype": "Section Break",
+   "label": "Administration & Notifications"
+  },
+  {
+   "description": "Comma-separated email addresses to notify on refused logins, bindings, or anomalies",
+   "fieldname": "admin_notification_emails",
+   "fieldtype": "Small Text",
+   "label": "Admin Notification Emails"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-11-01 11:27:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe SSO Guard",
+ "name": "SSO Identity Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

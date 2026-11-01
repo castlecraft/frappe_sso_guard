@@ -1,0 +1,37 @@
+# Dex OIDC Provider Configuration for local development testing
+issuer: http://dex.localhost:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+telemetry:
+  http: 0.0.0.0:5558
+
+# Static mock users for testing (password is 'password' for all)
+enablePasswordDB: true
+staticPasswords:
+  - email: "sso-admin@example.org"
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
+    username: "sso-admin"
+    userID: "08a5da84-ac59-4a7c-9203-82aa34794ba9"
+  - email: "caseworker@example.org"
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
+    username: "caseworker"
+    userID: "18a5da84-ac59-4a7c-9203-82aa34794ba9"
+  - email: "supervisor@example.org"
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # password
+    username: "supervisor"
+    userID: "28a5da84-ac59-4a7c-9203-82aa34794ba9"
+
+# Registered OIDC Clients
+staticClients:
+  - id: frappe-sso-client
+    name: "Frappe SSO Guard Dev Client"
+    secret: "frappe_sso_secret"
+    redirectURIs:
+      - "http://localhost:8000/api/method/frappe_sso_guard.api.callback.handle_callback"
+      - "http://127.0.0.1:8000/api/method/frappe_sso_guard.api.callback.handle_callback"
+      - "http://localhost:8080/api/method/frappe_sso_guard.api.callback.handle_callback"
