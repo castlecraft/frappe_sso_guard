@@ -29,4 +29,5 @@ doc_events = {
 scheduler_events = {
 	"monthly": ["frappe_sso_guard.tasks.inactive_users.send_monthly_inactive_users_report"],
 	"daily": ["frappe_sso_guard.tasks.api_keys.verify_active_api_key_users"],
+	"cron": {"*/15 * * * *": ["frappe_sso_guard.tasks.reconciliation.run_scheduled_reconciliation"]},
 }
