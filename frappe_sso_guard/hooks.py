@@ -12,6 +12,8 @@ export_python_type_annotations = True
 
 # Minimal, essential hooks
 on_login = "frappe_sso_guard.guard.session_guard.enforce_session_guard"
+on_logout = "frappe_sso_guard.guard.login_page.remember_logout"
+update_website_context = "frappe_sso_guard.guard.login_page.redirect_login_page"
 
 doc_events = {
 	"User": {
