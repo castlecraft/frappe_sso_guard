@@ -15,9 +15,14 @@ on_login = "frappe_sso_guard.guard.session_guard.enforce_session_guard"
 on_logout = "frappe_sso_guard.guard.login_page.remember_logout"
 update_website_context = "frappe_sso_guard.guard.login_page.redirect_login_page"
 
+after_install = "frappe_sso_guard.install.after_install"
+after_migrate = "frappe_sso_guard.install.after_migrate"
+
 doc_events = {
 	"User": {
 		"before_validate": "frappe_sso_guard.guard.password_guard.before_validate_user",
+		"validate": "frappe_sso_guard.guard.api_key_guard.validate_user_api_key",
+		"on_update": "frappe_sso_guard.guard.api_key_guard.log_new_api_key",
 		"validate_reset_password": "frappe_sso_guard.guard.password_guard.validate_reset_password",
 	},
 	"User Invitation": {
