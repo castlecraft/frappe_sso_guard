@@ -1,3 +1,6 @@
+# Copyright (c) 2026, International Committee of the Red Cross and contributors
+# For license information, please see license.txt
+
 import json
 
 import click
@@ -5,13 +8,16 @@ import frappe
 
 
 def setup_dex():
+	if not frappe.conf.developer_mode:
+		frappe.throw("setup_dex configures a local test identity provider: developer mode only.")
+
 	if not frappe.db.exists("Social Login Key", "dex_local"):
 		doc = frappe.get_doc(
 			{
 				"doctype": "Social Login Key",
 				"provider_name": "dex_local",
 				"base_url": "http://dex.localhost:5556/dex",
-				"authorize_url": "http://dex.localhost:5556/dex/auth",
+				"authorize_url": "/api/method/frappe_sso_guard.api.callback.start",
 				"access_token_url": "http://dex.localhost:5556/dex/token",
 				"client_id": "frappe-sso-client",
 				"client_secret": "frappe_sso_secret",
@@ -24,6 +30,7 @@ def setup_dex():
 		click.secho("Created Social Login Key: dex_local", fg="green")
 	else:
 		doc = frappe.get_doc("Social Login Key", "dex_local")
+		doc.authorize_url = "/api/method/frappe_sso_guard.api.callback.start"
 		doc.auth_url_data = json.dumps({"response_type": "code", "scope": "openid email profile"})
 		doc.save(ignore_permissions=True)
 		click.secho("Updated Social Login Key: dex_local with OIDC scopes", fg="yellow")
@@ -31,7 +38,6 @@ def setup_dex():
 	settings = frappe.get_single("SSO Identity Settings")
 	settings.social_login_key = "dex_local"
 	settings.idp_type = "Generic OIDC"
-	settings.enable_sso_guard = 1
 	settings.enable_single_logout = 0
 	settings.save(ignore_permissions=True)
 	frappe.db.commit()

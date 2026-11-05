@@ -1,163 +1,222 @@
+# Copyright (c) 2026, International Committee of the Red Cross and contributors
+# For license information, please see license.txt
+
+import hashlib
+import hmac
 import json
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from urllib.parse import urlencode
 
 import frappe
 import jwt
 import requests
-from frappe.utils import now_datetime
-from frappe.utils.oauth import consume_oauth_state
-from jwt import PyJWKClient
+from frappe import _
+from frappe.utils.oauth import (
+	OAUTH_LOGIN_FLOW_CACHE_PREFIX,
+	consume_oauth_state,
+	get_oauth_keys,
+	get_redirect_uri,
+	redirect_post_login,
+)
+
+from frappe_sso_guard.services.audit import log_audit_event
+from frappe_sso_guard.services.idp import (
+	SSONotConfiguredError,
+	exchange_code,
+	get_openid_configuration,
+	get_sign_in_config,
+	make_code_challenge,
+	verify_id_token,
+)
+from frappe_sso_guard.services.user_matching import SignInRefused, find_or_bind_user
+
+FLOW_CACHE_PREFIX = "frappe_sso_guard_flow"
+FLOW_COOKIE_PREFIX = "sso_flow_"
+# As long as Frappe keeps the state this flow belongs to.
+FLOW_LIFETIME_SECONDS = 600
+DEFAULT_SCOPE = "openid email profile"
+
+
+@frappe.whitelist(allow_guest=True)
+def start(state: str | None = None):
+	"""Sends the visitor to the identity provider with a nonce and PKCE, bound to this browser.
+
+	The Social Login Key's Authorize URL points here, so the login page's button arrives with the
+	state Frappe created. Frappe's link cannot carry these itself: its parameters are fixed in the
+	Social Login Key, and these must differ per sign-in.
+	"""
+	if not state or frappe.cache.get_value(f"{OAUTH_LOGIN_FLOW_CACHE_PREFIX}:{state}") is None:
+		log_audit_event(
+			event_type="Session Refused",
+			status="Refused",
+			details={"reason": "Sign-in started with an unknown state"},
+			persist=False,
+		)
+		return _show_failure(_("Your sign-in has expired. Please try again."), 403)
+
+	try:
+		config = get_sign_in_config()
+		discovery = get_openid_configuration(config["sso_issuer"])
+		key_name = config["social_login_key"]
+		client_id = get_oauth_keys(key_name)["client_id"]
+		auth_url_data = frappe.db.get_value("Social Login Key", key_name, "auth_url_data")
+		redirect_uri = get_redirect_uri(key_name)
+	except SSONotConfiguredError, ValueError, requests.RequestException:
+		frappe.log_error(title="Single sign-on could not start")
+		return _show_failure(_("Single sign-on is not available right now. Please try again later."), 502)
+
+	binding = frappe.generate_hash(length=32)
+	nonce = frappe.generate_hash(length=32)
+	code_verifier = frappe.generate_hash(length=64)
+
+	frappe.cache.set_value(
+		f"{FLOW_CACHE_PREFIX}:{state}",
+		{"binding": _hash_binding(binding), "nonce": nonce, "code_verifier": code_verifier},
+		expires_in_sec=FLOW_LIFETIME_SECONDS,
+	)
+	# One cookie per state, so two tabs signing in at once do not refuse each other.
+	frappe.local.cookie_manager.set_cookie(
+		f"{FLOW_COOKIE_PREFIX}{state}", binding, max_age=FLOW_LIFETIME_SECONDS, httponly=True
+	)
+
+	params = {"scope": DEFAULT_SCOPE, **json.loads(auth_url_data or "{}")}
+	params.update(
+		{
+			"response_type": "code",
+			"client_id": client_id,
+			"redirect_uri": redirect_uri,
+			"state": state,
+			"nonce": nonce,
+			"code_challenge": make_code_challenge(code_verifier),
+			"code_challenge_method": "S256",
+		}
+	)
+	frappe.local.response["type"] = "redirect"
+	frappe.local.response["location"] = f"{discovery['authorization_endpoint']}?{urlencode(params)}"
 
 
 @frappe.whitelist(allow_guest=True)
 def handle_callback(code: str | None = None, state: str | None = None, error: str | None = None):
-	"""Minimal, reliable OIDC callback:
+	"""Completes the sign-in the identity provider sends back.
 
-	1. Validates state using Frappe's native consume_oauth_state().
-	2. Exchanges code for tokens.
-	3. Verifies ID token signature via JWKS against pinned sso_issuer.
-	4. Matches user by immutable ID (sub or oid+tid).
-	5. Logs in via Frappe's LoginManager.
+	Text from the request, the token or an exception never reaches the page: this endpoint is open
+	to guests and Frappe's message page does not escape what it is given.
 	"""
-	if error:
-		frappe.respond_as_web_page(
-			"Single Sign-On Failed", f"Identity provider returned error: {error}", http_status_code=403
+	flow = _take_flow(state)
+	if not flow:
+		log_audit_event(
+			event_type="Session Refused",
+			status="Refused",
+			details={"reason": "Callback without a matching state and browser"},
+			persist=False,
 		)
-		return
+		return _show_failure(_("Your sign-in has expired. Please try again."), 403)
 
-	if not code or not state:
-		frappe.respond_as_web_page(
-			"Single Sign-On Failed", "Missing authorization code or state.", http_status_code=400
-		)
-		return
-
-	# 1. Validate state using Frappe's native single-use cache
 	redirect_to = consume_oauth_state(state)
 	if redirect_to is None:
-		frappe.respond_as_web_page(
-			"Single Sign-On Failed",
-			"Invalid state or session expired. Please sign in again.",
-			http_status_code=403,
+		return _show_failure(_("Your sign-in has expired. Please try again."), 403)
+
+	if error or not code:
+		return _refuse_callback(
+			_("The identity provider did not complete your sign-in. Please try again."),
+			{"reason": "Identity provider returned no code", "error": (error or "")[:100]},
 		)
-		return
-
-	redirect_to = redirect_to or "/app"
-
-	# 2. Get Site Config & Social Login Key
-	conf = frappe.conf or {}
-	key_name = conf.get("sso_provider_key")
-	if not key_name:
-		key_name = frappe.db.get_single_value("SSO Identity Settings", "social_login_key")
-
-	if not key_name:
-		frappe.throw("sso_provider_key is not configured in site_config.json")
-
-	key_doc = frappe.get_doc("Social Login Key", key_name)
-	client_secret = key_doc.get_password("client_secret")
-	sso_issuer = conf.get("sso_issuer") or key_doc.base_url
-
-	# 3. Exchange code for tokens at IdP token endpoint
-	token_endpoint = key_doc.access_token_url
-	if not token_endpoint:
-		discovery_resp = requests.get(
-			sso_issuer.rstrip("/") + "/.well-known/openid-configuration", timeout=10
-		)
-		discovery_resp.raise_for_status()
-		token_endpoint = discovery_resp.json().get("token_endpoint")
-
-	callback_url = f"{frappe.utils.get_url()}/api/method/frappe_sso_guard.api.callback.handle_callback"
-
-	token_payload = {
-		"grant_type": "authorization_code",
-		"code": code,
-		"redirect_uri": callback_url,
-		"client_id": key_doc.client_id,
-		"client_secret": client_secret,
-	}
 
 	try:
-		token_resp = requests.post(token_endpoint, data=token_payload, timeout=10)
-		token_resp.raise_for_status()
-		tokens = token_resp.json()
-	except Exception as e:
-		frappe.respond_as_web_page(
-			"Single Sign-On Failed", f"Token exchange failed: {e!s}", http_status_code=502
+		config = get_sign_in_config()
+		key_name = config["social_login_key"]
+		issuer = config["sso_issuer"]
+		discovery = get_openid_configuration(issuer)
+		keys = get_oauth_keys(key_name)
+		tokens = exchange_code(
+			# From the pinned issuer's discovery, not the Social Login Key a System Manager can edit.
+			discovery["token_endpoint"],
+			code,
+			get_redirect_uri(key_name),
+			keys["client_id"],
+			keys["client_secret"],
+			flow["code_verifier"],
 		)
-		return
+	except SSONotConfiguredError, ValueError, requests.RequestException:
+		frappe.log_error(title="Single sign-on token exchange failed")
+		return _show_failure(_("Single sign-on is not available right now. Please try again later."), 502)
 
-	id_token = tokens.get("id_token")
-	if not id_token:
-		frappe.respond_as_web_page(
-			"Single Sign-On Failed", "IdP did not return an ID token.", http_status_code=502
-		)
-		return
-
-	# 4. Verify ID Token signature against JWKS
 	try:
-		jwks_uri = f"{sso_issuer.rstrip('/')}/keys"
-		jwk_client = PyJWKClient(jwks_uri, cache_keys=True)
-		signing_key = jwk_client.get_signing_key_from_jwt(id_token)
-		claims = jwt.decode(
-			id_token,
-			signing_key.key,
-			algorithms=["RS256", "RS384", "RS512", "ES256", "ES384", "ES512"],
-			audience=key_doc.client_id,
-			issuer=sso_issuer,
-			options={"verify_signature": True, "verify_iss": True, "verify_aud": True, "verify_exp": True},
+		claims = verify_id_token(
+			tokens.get("id_token") or "",
+			discovery["jwks_uri"],
+			issuer,
+			keys["client_id"],
+			flow["nonce"],
 		)
-	except Exception as e:
-		frappe.respond_as_web_page(
-			"Single Sign-On Failed", f"ID token verification failed: {e!s}", http_status_code=403
+		user = find_or_bind_user(claims, key_name, config["idp_type"])
+	except (jwt.PyJWTError, ValueError) as e:
+		return _refuse_callback(
+			_("Your sign-in could not be verified. Please try again."),
+			{"reason": "ID token verification failed", "error_type": type(e).__name__},
 		)
-		return
+	except SignInRefused as e:
+		# find_or_bind_user logged the refusal and wrote nothing else.
+		_commit_log()
+		return _show_failure(str(e), 403)
 
-	# 5. Extract immutable identifier
-	sub = claims.get("sub")
-	oid = claims.get("oid")
-	tid = claims.get("tid")
-	immutable_id = f"{oid}:{tid}" if (oid and tid) else (oid or sub)
-	email = (claims.get("email") or "").lower()
-
-	if not immutable_id:
-		frappe.throw("Token claims missing sub or oid.")
-
-	# 6. Find or create user
-	user = frappe.db.get_value("User Social Login", {"provider": key_name, "userid": immutable_id}, "parent")
-
-	if not user and email:
-		existing = frappe.db.get_value("User", {"email": email}, "name")
-		if existing:
-			user_doc = frappe.get_doc("User", existing)
-			user_doc.append("social_logins", {"provider": key_name, "userid": immutable_id})
-			user_doc.save(ignore_permissions=True)
-			user = existing
-		else:
-			new_user = frappe.get_doc(
-				{
-					"doctype": "User",
-					"email": email,
-					"first_name": claims.get("name") or claims.get("given_name") or email,
-					"enabled": 1,
-					"send_welcome_email": 0,
-					"user_type": "System User",
-					"social_logins": [{"provider": key_name, "userid": immutable_id}],
-				}
-			)
-			new_user.flags.ignore_permissions = True
-			new_user.flags.ignore_password_policy = True
-			new_user.insert(ignore_permissions=True)
-			user = new_user.name
-
-	if not user:
-		frappe.throw(f"Could not map user for identifier {immutable_id}")
-
-	# 7. Open Session
 	frappe.flags.oidc_session_authorized = True
-	frappe.local.login_manager.login_as(user)
+	frappe.local.login_manager.login_as(user, session_end=_get_session_end(config["session_max_hours"]))
+	log_audit_event(
+		event_type="Login Success", status="Success", user=user, details={"iat": claims.get("iat")}
+	)
 
-	# Commit DB write before redirecting (GET request)
+	# nosemgrep: frappe-semgrep-rules.rules.frappe-manual-commit -- reviewed: Frappe rolls back a GET request, which would lose the session, the user and the log.
 	frappe.db.commit()
 
-	# 8. Clean redirect to desk/app
-	frappe.local.response["type"] = "redirect"
-	frappe.local.response["location"] = redirect_to
+	redirect_post_login(
+		desk_user=frappe.local.response.get("message") == "Logged In",
+		redirect_to=redirect_to or None,
+		provider=key_name,
+	)
+
+
+def _get_session_end(max_hours: int) -> str:
+	# With its zone: Frappe compares this with an aware now, and a naive value raises on every request.
+	return (datetime.now(tz=UTC) + timedelta(hours=max_hours)).isoformat()
+
+
+def _hash_binding(binding: str) -> str:
+	return hashlib.sha256(binding.encode()).hexdigest()
+
+
+def _take_flow(state: str | None) -> dict | None:
+	"""Returns this state's flow if the browser started it, and removes it so it works only once.
+
+	A request from any other browser leaves the flow in place, so it cannot cancel a real sign-in.
+	"""
+	if not state:
+		return None
+
+	cache_key = f"{FLOW_CACHE_PREFIX}:{state}"
+	flow = frappe.cache.get_value(cache_key)
+	cookie_name = f"{FLOW_COOKIE_PREFIX}{state}"
+	binding = frappe.request.cookies.get(cookie_name)
+	if not flow or not binding:
+		return None
+	if not hmac.compare_digest(_hash_binding(binding), flow["binding"]):
+		return None
+
+	frappe.cache.delete_value(cache_key)
+	frappe.local.cookie_manager.delete_cookie(cookie_name)
+	return flow
+
+
+def _refuse_callback(message: str, details: dict) -> None:
+	log_audit_event(event_type="Session Refused", status="Refused", details=details)
+	_commit_log()
+	_show_failure(message, 403)
+
+
+def _commit_log() -> None:
+	# nosemgrep: frappe-semgrep-rules.rules.frappe-manual-commit -- reviewed: Frappe rolls back a GET request, which would lose the refusal's log entry; nothing else was written.
+	frappe.db.commit()
+
+
+def _show_failure(message: str, http_status_code: int) -> None:
+	frappe.respond_as_web_page(_("Single Sign-On Failed"), message, http_status_code=http_status_code)
