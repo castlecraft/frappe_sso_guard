@@ -27,7 +27,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Event Type",
-   "options": "Login Success\nSession Refused\nAdmin CLI Bypass\nUser Bound\nEmail Changed\nAPI Key Alert\nUser Created\nBreak-Glass Login\nInactive Users Report Sent\nUser Disabled\nReconciliation Run\nReconciliation Aborted\nAPI Key Created",
+   "options": "Login Success\nSession Refused\nAdmin CLI Bypass\nUser Bound\nEmail Changed\nAPI Key Alert\nUser Created\nBreak-Glass Login\nInactive Users Report Sent\nUser Disabled\nReconciliation Run\nReconciliation Aborted\nAPI Key Created\nSite Settings Aligned",
    "reqd": 1
   },
   {
@@ -66,7 +66,7 @@
   }
  ],
  "links": [],
- "modified": "2026-11-05 06:55:05.613241",
+ "modified": "2026-11-06 07:38:35.697201",
  "modified_by": "Administrator",
  "module": "Frappe SSO Guard",
  "name": "SSO Identity Assignment Log",

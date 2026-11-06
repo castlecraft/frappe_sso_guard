@@ -73,7 +73,12 @@ See [Absolute Session End](01-architecture-and-design.md#4-absolute-session-end)
 
 ## 4. Closing the Other Sign-In Paths
 
-With `force_sso` at 1, the guard refuses every web session the identity provider did not open, whichever path it comes through. Two settings also remove the paths from the login page, and they are set by hand on each site:
+With `force_sso` at 1, the guard refuses every web session the identity provider did not open, whichever path it comes through. The app also keeps the site in step with it:
+
+- **At install and at each `bench migrate`**, it turns **Login with email link** off, turns **Disable Signup** on, and expires pending User Invitations without emailing anyone. What it changes goes to the identity log as `Site Settings Aligned`.
+- **On a save from the web**, it refuses those two settings in any other state. A bench command is left alone, and the next migrate puts them back.
+
+Changing `force_sso` runs no code: after setting it to 1 on a running site, run `bench migrate`. Until then the guard still refuses those paths, but the login page can offer them. Setting it back to 0 restores nothing: change the two settings by hand if the site needs them.
 
 | Path | Closed by |
 |---|---|
@@ -83,7 +88,7 @@ With `force_sso` at 1, the guard refuses every web session the identity provider
 | Sign-up form | **Disable Signup** on in Website Settings |
 | Password reset, setting a password | The password guard, for everyone but the break-glass account |
 | Welcome email | Switched off on every User |
-| User Invitation | Creation refused; the session guard refuses one already sent |
+| User Invitation | Creation refused, pending ones expired; the session guard refuses one already sent |
 
 Leave **Disable Username/Password Login** in System Settings **off**. Frappe applies it to every account before checking the password, so it would also lock out the break-glass account. The password form at `/login?break-glass=1` is therefore only a page: the session guard still refuses everyone but the break-glass account, whatever address they came from.
 

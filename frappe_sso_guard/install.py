@@ -4,14 +4,17 @@
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 from frappe_sso_guard.guard.api_key_guard import API_KEY_ALLOWED_FIELD
+from frappe_sso_guard.guard.site_settings import align_site_with_force_sso
 
 
 def after_install():
 	ensure_custom_fields()
+	align_site_with_force_sso()
 
 
 def after_migrate():
 	ensure_custom_fields()
+	align_site_with_force_sso()
 
 
 def ensure_custom_fields():

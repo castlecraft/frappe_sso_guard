@@ -30,6 +30,7 @@ class SSOIdentityAssignmentLog(Document):
 			"Reconciliation Run",
 			"Reconciliation Aborted",
 			"API Key Created",
+			"Site Settings Aligned",
 		]
 		idp_identifier: DF.Data | None
 		ip_address: DF.Data | None

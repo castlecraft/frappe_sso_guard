@@ -28,6 +28,12 @@ doc_events = {
 	"User Invitation": {
 		"before_insert": "frappe_sso_guard.guard.password_guard.before_insert_user_invitation",
 	},
+	"System Settings": {
+		"validate": "frappe_sso_guard.guard.site_settings.validate_system_settings",
+	},
+	"Website Settings": {
+		"validate": "frappe_sso_guard.guard.site_settings.validate_website_settings",
+	},
 }
 
 # Scheduled background jobs
