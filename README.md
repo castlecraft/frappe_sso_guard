@@ -25,6 +25,7 @@ Detailed guides are available in the [`docs/`](docs/) directory:
 - [01 - Architecture and Design](docs/01-architecture-and-design.md): Sequence flow, ID token verification, user matching, and session guard.
 - [02 - Configuration and Deployment Guide](docs/02-configuration-and-deployment.md): Setting up `site_config.json`, Social Login Key, and CLI emergency bypass (`bench browse`).
 - [03 - Local Development with Dex OIDC Provider](docs/03-local-development-with-dex.md): Walkthrough of running the local Dex OIDC service via `dev/docker-compose.dex.yml` and testing logins.
+- [04 - Local Development with Keycloak](docs/04-local-development-with-keycloak.md): Running against a real Keycloak in ICRC's dev container template, and the end-to-end test.
 
 ---
 
@@ -88,8 +89,9 @@ This app is still being built. Check the following before relying on it.
 
 ### Testing
 
-- The tests use a mock identity provider. Sign-in has not yet been confirmed by hand against a real Keycloak or Entra ID, and there are no browser tests.
-- The commands in `commands.py` have no tests.
+- Keycloak: `tests/test_keycloak.py` passes against the real Keycloak 26.8.1 container image and against 26.8.1 and 26.6.0 from the zip, and skips where none is running, as in CI. ICRC's dev container stack itself has not yet been started with this app. See [Local Development with Keycloak](docs/04-local-development-with-keycloak.md).
+- Entra ID: tested only against a mock. Nothing has been tried against a real tenant.
+- `setup_dex` has no tests.
 - The pytest suite does not yet cover `api/callback.py` or `services/user_matching.py`; the Frappe suite tests the callback.
 - The Frappe tests create users, so they fail with `Throttled` on a site that has just created more than 60 in the last hour, as a volume load does.
 

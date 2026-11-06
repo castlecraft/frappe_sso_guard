@@ -27,6 +27,8 @@ Add the following keys to your site's `site_config.json`:
 
 These are in the site config, not in SSO Identity Settings, because a System Manager can edit the page and these limit what a System Manager can do.
 
+Frappe's web processes keep the site config for 60 seconds, so a change to any of these can take that long to apply on a running server.
+
 **Identity Provider Type** in SSO Identity Settings selects the immutable identifier: `sub` for Keycloak and Generic OIDC, `oid` with `tid` for Entra ID.
 
 ### Identity provider set-up
@@ -139,6 +141,8 @@ The identity provider enforces MFA. The callback can also refuse a token that do
 - **`sso_mfa_claim`**: The ID token's claim to read, `acr` when absent. A claim holding a list, such as `amr`, passes when any of its values is accepted.
 - Keycloak: map the level of authentication to `acr` in the client's flow, and set the same values.
 - Entra ID: check what your tenant's tokens carry before setting this. Conditional Access can require MFA with no claim in a v2.0 ID token, and this check would then refuse everyone.
+
+On Keycloak, `acr` also falls when a sign-in reuses an existing Keycloak session: a password sign-in showed `1` and the same person's next sign-in `0`. Choose the accepted values with that in mind, or someone already signed in to another application is refused here.
 
 ---
 
