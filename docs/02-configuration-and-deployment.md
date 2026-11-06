@@ -156,6 +156,8 @@ A job disables in Frappe each bound User the identity provider has disabled or r
 2. Turn on **Enable Reconciliation** in SSO Identity Settings.
 3. Use **Run Reconciliation** on that page, or set **Reconciliation Schedule**: Every 15 Minutes, Hourly or Daily.
 
+A schedule needs Frappe's scheduler on, as do the monthly report and the API key check. A new site has it off until its setup wizard finishes. While it is off the page shows a warning, and `bench --site <site> enable-scheduler` turns it on.
+
 Safeguards:
 
 - **Every account is read before any is changed.** If the provider fails partway, or refuses the credential, nobody is disabled. The run is logged as **Reconciliation Aborted** and emailed.

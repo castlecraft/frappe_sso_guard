@@ -10,6 +10,17 @@ from frappe_sso_guard.services.idp import get_sso_config
 
 
 class IntegrationTestSSOIdentitySettings(IntegrationTestCase):
+	def test_the_form_is_told_whether_the_scheduler_is_off(self):
+		module = "frappe_sso_guard.frappe_sso_guard.doctype.sso_identity_settings.sso_identity_settings"
+		for inactive in (True, False):
+			with (
+				self.subTest(inactive=inactive),
+				patch(f"{module}.is_scheduler_inactive", return_value=inactive),
+			):
+				settings = frappe.get_single("SSO Identity Settings")
+				settings.run_method("onload")
+				self.assertIs(settings.get_onload("scheduler_inactive"), inactive)
+
 	def _set_session_max_hours(self, hours):
 		settings = frappe.get_single("SSO Identity Settings")
 		settings.session_max_hours = hours

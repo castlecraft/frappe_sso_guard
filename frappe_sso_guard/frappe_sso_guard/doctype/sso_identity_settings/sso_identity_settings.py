@@ -4,6 +4,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils.scheduler import is_scheduler_inactive
 
 from frappe_sso_guard.services.idp import get_session_max_hours_limit
 from frappe_sso_guard.tasks.reconciliation import enqueue_reconciliation
@@ -31,6 +32,11 @@ class SSOIdentitySettings(Document):
 		session_max_hours: DF.Int
 		social_login_key: DF.Link | None
 	# end: auto-generated types
+
+	def onload(self):
+		# A schedule set here does nothing while the scheduler is off, as on a new site until its setup wizard
+		# finishes, and no other sign of that reaches whoever set it.
+		self.set_onload("scheduler_inactive", is_scheduler_inactive(verbose=False))
 
 	def validate(self):
 		self._validate_session_max_hours()
