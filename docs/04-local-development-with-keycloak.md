@@ -62,6 +62,8 @@ Open `http://dev.localhost:8000/login` and use **Login with keycloak_local**, or
 | `sso.unverified` | Their email is not verified: the app refuses to bind them to an existing account |
 | `sso.leaver` | Disable or delete them in Keycloak, then run a reconciliation |
 
+`sso.active` is in the group `/ucm/caseworkers`, and the others are in none. To try [Team Membership](02-configuration-and-deployment.md#12-team-membership), set **Identity Provider Group** on a UCM Team to that path and turn the setting on.
+
 The realm also holds `frappe-sso-guard-directory`, a service account with only `view-users`, which reconciliation uses.
 
 ## 4. The test
@@ -88,5 +90,6 @@ Add `--http-management-port` with a free port if the bench's realtime server hol
 
 ## 6. What Keycloak showed
 
+- **Someone in no group gets no `groups` claim at all**, not an empty list.
 - **Logging out takes two clicks.** Keycloak asks "Do you want to log out?", because the request carries no ID token and the app does not keep one.
 - **`acr` is `1` for a password sign-in and `0` when the sign-in reuses Keycloak's session**, as when someone is already signed in to another application. So `sso_mfa_values` set to `1` refuses the second case. The test realm has no second factor, so the check was run as a comparison of the claim only: the values for ICRC's realm have to come from how MFA is set up there.

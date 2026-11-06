@@ -73,7 +73,7 @@ This app is still being built. Check the following before relying on it.
 
 ### Not built yet
 
-- **Group mapping**: setting a user's teams from the groups in their token, including Entra ID group overage.
+- **Entra ID group overage**: a token over Entra ID's limit of groups is refused, rather than read through Graph. See [Team Membership](docs/02-configuration-and-deployment.md#12-team-membership), which also lists what else was left simple.
 
 ### Known limits
 

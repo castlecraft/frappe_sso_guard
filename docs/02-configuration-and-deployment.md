@@ -200,3 +200,31 @@ Known limits:
 
 **SSO Identity Assignment Log** is append-only: no role can create, change or delete an entry, the controller refuses Administrator too, and nothing clears old entries. The requirement is 7 years. Each entry is also written as a structured line to the pod's logs for the SOC, whose copy is the evidence: a database administrator can still change this table.
 
+---
+
+## 12. Team Membership
+
+Off by default. With **Set Teams From Identity Provider Groups** on in SSO Identity Settings, an app holding teams, such as UCM, sets each person's teams from the groups in their token at each sign-in, before the session opens, so the session starts with the roles those teams give. On a site with no such app the setting does nothing.
+
+- **Mapping**: a UCM Team names its group in **Identity Provider Group**, exactly as the token gives it. Several teams may name one group.
+- **Keycloak**: add a Group Membership mapper to the client, with **Add to ID token** and **Full group path** on, and the same claim name as **Groups Claim** (`groups` by default). A bare name would let two groups of the same name grant the same team.
+- **Entra ID**: emit the groups' object IDs, with only the groups assigned to the application.
+
+| The token | What happens |
+|---|---|
+| Lists groups | The person joins each team naming one, and leaves each other team naming a group |
+| Has no groups claim, as Keycloak sends for someone in no group | The same, with no groups: they sign in and leave every team naming a group |
+| Says the groups are elsewhere (`_claim_names`), as Entra ID does for someone with too many | Refused, and nothing is written |
+
+**A mapper removed by mistake** takes people out of these teams as they sign in. It fails safe, and they return at their next sign-in after it is restored. **Team Removed** rows in the log show it happening.
+
+Each change is logged as **Team Added** or **Team Removed**, with the team, the group and the token's `iat`.
+
+**Simple for now**, and open to change:
+
+- A team naming a group takes its members from the identity provider alone, and its form does not change them. Teams naming no group stay managed by hand. Only an administrator sets a team's group.
+- A change at the provider applies at the person's next sign-in, or when their session ends. There is no "Refresh my access" action, and reconciliation does not update teams.
+- No group naming convention: the value is compared exactly.
+- The changes are in the SSO Identity Assignment Log, kept as the rest of it is, and not in the Team's version history.
+- Entra ID's Graph lookup for too many groups is not built, so those people are refused.
+
