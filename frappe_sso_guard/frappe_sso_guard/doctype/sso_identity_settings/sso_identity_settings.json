@@ -7,6 +7,9 @@
   "sso_config_section",
   "social_login_key",
   "idp_type",
+  "team_membership_section",
+  "enable_team_membership",
+  "groups_claim",
   "session_policy_section",
   "session_max_hours",
   "enable_single_logout",
@@ -112,11 +115,31 @@
    "fieldtype": "Datetime",
    "label": "Last Reconciliation",
    "read_only": 1
+  },
+  {
+   "fieldname": "team_membership_section",
+   "fieldtype": "Section Break",
+   "label": "Team Membership"
+  },
+  {
+   "default": "0",
+   "description": "At each sign-in, a team naming a group gets or loses this person according to the groups in their token. Teams naming no group stay managed by hand.",
+   "fieldname": "enable_team_membership",
+   "fieldtype": "Check",
+   "label": "Set Teams From Identity Provider Groups"
+  },
+  {
+   "default": "groups",
+   "depends_on": "enable_team_membership",
+   "description": "The ID token's claim holding the groups. On Keycloak, map it with Full group path on.",
+   "fieldname": "groups_claim",
+   "fieldtype": "Data",
+   "label": "Groups Claim"
   }
  ],
  "issingle": 1,
  "links": [],
- "modified": "2026-11-05 06:55:05.319315",
+ "modified": "2026-11-06 13:23:29.472836",
  "modified_by": "Administrator",
  "module": "Frappe SSO Guard",
  "name": "SSO Identity Settings",

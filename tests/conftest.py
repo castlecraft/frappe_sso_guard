@@ -16,6 +16,7 @@ MODULES_USING_FRAPPE = (
 	"frappe_sso_guard.services.directory",
 	"frappe_sso_guard.services.audit",
 	"frappe_sso_guard.services.idp",
+	"frappe_sso_guard.services.team_membership",
 )
 
 

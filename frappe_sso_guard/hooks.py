@@ -15,6 +15,9 @@ on_login = "frappe_sso_guard.guard.session_guard.enforce_session_guard"
 on_logout = "frappe_sso_guard.guard.login_page.remember_logout"
 update_website_context = "frappe_sso_guard.guard.login_page.redirect_login_page"
 
+# Lets an app holding teams ask whether this site takes their members from the identity provider.
+ucm_team_membership_from_idp = "frappe_sso_guard.services.team_membership.is_enabled"
+
 after_install = "frappe_sso_guard.install.after_install"
 after_migrate = "frappe_sso_guard.install.after_migrate"
 

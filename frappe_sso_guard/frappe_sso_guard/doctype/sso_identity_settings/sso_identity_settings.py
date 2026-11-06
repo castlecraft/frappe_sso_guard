@@ -21,6 +21,8 @@ class SSOIdentitySettings(Document):
 		admin_notification_emails: DF.SmallText | None
 		enable_reconciliation: DF.Check
 		enable_single_logout: DF.Check
+		enable_team_membership: DF.Check
+		groups_claim: DF.Data | None
 		idp_type: DF.Literal["Keycloak", "Entra ID", "Generic OIDC"]
 		inactivity_months: DF.Int
 		last_reconciliation: DF.Datetime | None

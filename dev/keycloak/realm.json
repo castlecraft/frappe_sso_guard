@@ -2,6 +2,12 @@
   "realm": "frappe-sso-guard",
   "enabled": true,
   "registrationAllowed": false,
+  "groups": [
+    {
+      "name": "ucm",
+      "subGroups": [{ "name": "caseworkers" }, { "name": "supervisors" }]
+    }
+  ],
   "clients": [
     {
       "clientId": "frappe-sso-guard",
@@ -15,7 +21,21 @@
       "attributes": {
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "+"
-      }
+      },
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
     },
     {
       "clientId": "frappe-sso-guard-directory",
@@ -34,7 +54,8 @@
       "emailVerified": true,
       "enabled": true,
       "firstName": "Active",
-      "lastName": "Person"
+      "lastName": "Person",
+      "groups": ["/ucm/caseworkers"]
     },
     {
       "username": "sso.disabled",

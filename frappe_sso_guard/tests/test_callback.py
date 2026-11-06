@@ -23,7 +23,7 @@ from frappe.utils.oauth import create_oauth_state
 from jwt.algorithms import RSAAlgorithm
 
 from frappe_sso_guard.api.callback import FLOW_COOKIE_PREFIX, handle_callback, start
-from frappe_sso_guard.services import idp
+from frappe_sso_guard.services import idp, team_membership
 
 PROVIDER_KEY = "test_sso_provider"
 CLIENT_ID = "test-client"
@@ -273,6 +273,75 @@ class TestCallback(IntegrationTestCase):
 
 	def _logged(self, event_type: str, **filters) -> bool:
 		return bool(frappe.db.exists("SSO Identity Assignment Log", {"event_type": event_type, **filters}))
+
+	# Team membership
+
+	def _with_team_handler(self, handler, enabled=1):
+		frappe.db.set_single_value("SSO Identity Settings", "enable_team_membership", enabled)
+		frappe.db.set_single_value("SSO Identity Settings", "groups_claim", "groups")
+		patcher = patch.object(team_membership, "_get_handlers", return_value=[handler])
+		patcher.start()
+		self.addCleanup(patcher.stop)
+		return handler
+
+	def test_groups_are_not_read_with_the_setting_off(self):
+		handler = self._with_team_handler(MagicMock(return_value=[]), enabled=0)
+		self._use(_keycloak(groups=["/a"]), "Keycloak")
+		self._bound_user()
+		self._sign_in()
+		self._assert_signed_in(SSO_USER)
+		handler.assert_not_called()
+
+	def test_teams_are_set_before_the_session_opens(self):
+		def handler(user, groups):
+			self.login_manager.login_as.assert_not_called()
+			return [{"team": "Team A", "group": groups[0], "action": "Added"}]
+
+		self._with_team_handler(handler)
+		self._use(_keycloak(groups=["/a"]), "Keycloak")
+		self._bound_user()
+		self._sign_in()
+		self._assert_signed_in(SSO_USER)
+		self.assertTrue(self._logged("Team Added", user=SSO_USER, idp_identifier="kc-subject-1"))
+
+	def test_a_new_person_gets_their_teams_at_their_first_sign_in(self):
+		handler = self._with_team_handler(MagicMock(return_value=[]))
+		self._use(_keycloak(groups=["/a"]), "Keycloak")
+		self._sign_in()
+		self._assert_signed_in(SSO_USER)
+		handler.assert_called_once_with(SSO_USER, ["/a"])
+
+	def test_an_empty_list_of_groups_signs_in_and_clears_the_teams(self):
+		handler = self._with_team_handler(MagicMock(return_value=[]))
+		self._use(_keycloak(groups=[]), "Keycloak")
+		self._bound_user()
+		self._sign_in()
+		self._assert_signed_in(SSO_USER)
+		handler.assert_called_once_with(SSO_USER, [])
+
+	def test_a_token_without_the_claim_means_no_groups(self):
+		handler = self._with_team_handler(MagicMock(return_value=[]))
+		self._use(_keycloak(), "Keycloak")
+		self._bound_user()
+		self._sign_in()
+		self._assert_signed_in(SSO_USER)
+		handler.assert_called_once_with(SSO_USER, [])
+
+	def test_an_entra_token_over_its_limit_of_groups_is_refused(self):
+		self._with_team_handler(MagicMock(return_value=[]))
+		self._use(_entra(_claim_names={"groups": "src1"}), "Entra ID")
+		self._sign_in()
+		self._assert_refused()
+		# Refused before anything is written.
+		self.assertFalse(frappe.db.exists("User", SSO_USER))
+
+	def test_teams_that_cannot_be_set_refuse_the_sign_in(self):
+		self._with_team_handler(MagicMock(side_effect=frappe.ValidationError("no")))
+		self._use(_keycloak(groups=["/a"]), "Keycloak")
+		self._bound_user()
+		self._sign_in()
+		self._assert_refused()
+		self.assertTrue(self._logged("Session Refused", user=SSO_USER))
 
 	# Both identity providers, through the same code
 

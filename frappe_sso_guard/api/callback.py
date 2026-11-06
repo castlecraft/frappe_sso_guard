@@ -28,6 +28,7 @@ from frappe_sso_guard.services.idp import (
 	make_code_challenge,
 	verify_id_token,
 )
+from frappe_sso_guard.services.team_membership import read_groups, set_teams
 from frappe_sso_guard.services.user_matching import SignInRefused, find_or_bind_user
 
 FLOW_CACHE_PREFIX = "frappe_sso_guard_flow"
@@ -149,14 +150,20 @@ def handle_callback(code: str | None = None, state: str | None = None, error: st
 			keys["client_id"],
 			flow["nonce"],
 		)
+		# Read first: a token that cannot set the teams is refused before it binds or creates anyone.
+		groups = read_groups(claims, config["idp_type"])
 		user = find_or_bind_user(claims, key_name, config["idp_type"])
+		# Before the session opens, so that it starts with the roles the teams give.
+		if groups is not None:
+			set_teams(user, groups, claims, config["idp_type"])
 	except (jwt.PyJWTError, ValueError) as e:
 		return _refuse_callback(
 			_("Your sign-in could not be verified. Please try again."),
 			{"reason": "ID token verification failed", "error_type": type(e).__name__},
 		)
 	except SignInRefused as e:
-		# find_or_bind_user logged the refusal and wrote nothing else.
+		# What refused logged it. It wrote nothing else, though a binding made just before set_teams refused stays:
+		# the person proved who they are, and only their teams could not be set.
 		_commit_log()
 		return _show_failure(str(e), 403)
 

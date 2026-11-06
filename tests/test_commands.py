@@ -78,6 +78,14 @@ def test_people_get_a_password_and_the_service_account_does_not(realm, keycloak)
 			assert user["credentials"][0]["value"] == secrets["user_password"]
 
 
+def test_groups_reach_the_id_token_by_their_full_path(realm):
+	"""A bare name would let two groups of the same name grant the same team."""
+	mapper = next(m for client in realm["clients"] for m in client.get("protocolMappers", []))
+	assert mapper["protocolMapper"] == "oidc-group-membership-mapper"
+	assert mapper["config"]["full.path"] == "true"
+	assert mapper["config"]["id.token.claim"] == "true"
+
+
 def test_the_directory_account_can_only_read_users(realm):
 	account = next(user for user in realm["users"] if user.get("serviceAccountClientId"))
 	assert account["clientRoles"] == {"realm-management": ["view-users"]}

@@ -31,6 +31,8 @@ class SSOIdentityAssignmentLog(Document):
 			"Reconciliation Aborted",
 			"API Key Created",
 			"Site Settings Aligned",
+			"Team Added",
+			"Team Removed",
 		]
 		idp_identifier: DF.Data | None
 		ip_address: DF.Data | None
