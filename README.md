@@ -72,25 +72,13 @@ This app is still being built. Check the following before relying on it.
 
 ### Not built yet
 
-- **Reconciliation**: disabling in Frappe the users the identity provider has disabled or removed. Until then, such a user cannot sign in again, but stays enabled in Frappe and keeps any session already open until it ends.
-- **Single logout**: logging out of Frappe does not end the identity provider's session, so the next visit can sign the user straight back in.
 - **Group mapping**: setting a user's teams from the groups in their token, including Entra ID group overage.
-- **Expiring pending invitations**: invitations sent before the app was installed stay pending, although the session guard refuses the sign-in they lead to.
-
-### Settings with no effect yet
-
-These appear in **SSO Identity Settings**, but switching them does nothing:
-
-| Setting | What controls it today |
-|---|---|
-| **Enable SSO Guard** | `force_sso` in `site_config.json` |
-| **Enable Single Logout (SLO)** | Nothing; see above |
-| **Enable Reconciliation** | Nothing; see above |
 
 ### Known limits
 
-- **Login page**: it still shows the password form, which only the break-glass account can get through. See [Closing the Other Sign-In Paths](docs/02-configuration-and-deployment.md#4-closing-the-other-sign-in-paths) for this and for the settings each site must change by hand.
-- **Break-glass account**: any System Manager can change it. The change is logged and emailed, and the email goes out only if **Admin Notification Emails** is filled in.
+- **Changing `force_sso`**: it runs no code, so run `bench migrate` after setting it to 1 on a running site. See [Closing the Other Sign-In Paths](docs/02-configuration-and-deployment.md#4-closing-the-other-sign-in-paths).
+- **Break-glass account**: the password form stays reachable at `/login?break-glass=1` while an account is named in `sso_break_glass_user`, though only that account can get through it.
+- **Absolute session end**: it covers sessions the callback opens, and an open socket.io connection keeps receiving events after its session ends. See [Absolute Session End](docs/01-architecture-and-design.md#4-absolute-session-end).
 
 ### Not confirmed yet
 
@@ -101,8 +89,9 @@ These appear in **SSO Identity Settings**, but switching them does nothing:
 ### Testing
 
 - The tests use a mock identity provider. Sign-in has not yet been confirmed by hand against a real Keycloak or Entra ID, and there are no browser tests.
-- The scheduled tasks in `tasks/` and the commands in `commands.py` have no tests.
+- The commands in `commands.py` have no tests.
 - The pytest suite does not yet cover `api/callback.py` or `services/user_matching.py`; the Frappe suite tests the callback.
+- The Frappe tests create users, so they fail with `Throttled` on a site that has just created more than 60 in the last hour, as a volume load does.
 
 ## License
 
