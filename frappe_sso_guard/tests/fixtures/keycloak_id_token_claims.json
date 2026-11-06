@@ -1,0 +1,20 @@
+{
+ "acr": "1",
+ "at_hash": "not-a-real-hash",
+ "aud": "frappe",
+ "azp": "frappe",
+ "email": "dev@example.com",
+ "email_verified": true,
+ "exp": 1800000300,
+ "family_name": "User",
+ "given_name": "Dev",
+ "iat": 1800000000,
+ "iss": "http://localhost:8080/realms/frappe",
+ "jti": "00000000-0000-4000-8000-000000000003",
+ "name": "Dev User",
+ "nonce": "nonce-from-the-sign-in",
+ "preferred_username": "dev",
+ "sid": "00000000-0000-4000-8000-000000000002",
+ "sub": "00000000-0000-4000-8000-000000000001",
+ "typ": "ID"
+}
