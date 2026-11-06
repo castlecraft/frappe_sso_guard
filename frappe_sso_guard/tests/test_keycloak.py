@@ -18,7 +18,7 @@ from frappe.utils import get_test_client, get_url, now_datetime
 from frappe_sso_guard import commands
 from frappe_sso_guard.api import callback
 from frappe_sso_guard.guard import login_page, session_guard
-from frappe_sso_guard.services import idp
+from frappe_sso_guard.services import idp, team_membership
 from frappe_sso_guard.tasks.reconciliation import reconcile_users
 from frappe_sso_guard.tests.utils import remove_traces_of_deleted, remove_traces_of_deleted_users
 
@@ -35,6 +35,8 @@ UNVERIFIED = "test.sso.unverified@example.org"
 LEAVER = "test.sso.leaver@example.org"
 USERS = (ACTIVE, DISABLED, UNVERIFIED, LEAVER)
 MAX_REDIRECTS = 15
+UCM_TEST_TEAM = "Test SSO Keycloak Team"
+UCM_TEST_JOB = "Test SSO Keycloak Job"
 
 
 class Browser:
@@ -74,7 +76,14 @@ class Browser:
 		else:
 			target = self.client.get if method == "GET" else self.client.post
 			path = f"{parts.path}?{parts.query}" if parts.query else parts.path
-			kwargs = {"headers": headers, "base_url": f"{parts.scheme}://{parts.netloc}", "data": data}
+			# Buffered, so that Frappe's after-response work, which writes the session, runs now and on this request's
+			# thread. Unbuffered it runs when the response is garbage collected: in a later test or after the cleanup.
+			kwargs = {
+				"headers": headers,
+				"base_url": f"{parts.scheme}://{parts.netloc}",
+				"data": data,
+				"buffered": True,
+			}
 			response = make_request(target=target, args=(path,), kwargs=kwargs)
 			frappe.db.rollback()
 			set_cookies = response.headers.getlist("Set-Cookie")
@@ -144,6 +153,11 @@ class KeycloakAdmin:
 	def delete_user(self, email):
 		self._call("DELETE", f"/users/{self.user_id(email)}")
 
+	def remove_from_groups(self, address):
+		user_id = self.user_id(address)
+		for group in self._call("GET", f"/users/{user_id}/groups").json():
+			self._call("DELETE", f"/users/{user_id}/groups/{group['id']}")
+
 	def delete_realm(self):
 		self._call("DELETE", "")
 
@@ -188,6 +202,8 @@ class TestKeycloak(IntegrationTestCase):
 				"session_max_hours",
 				# Ending a real session commits, in Frappe's delete_session, so a rollback does not undo this.
 				"last_reconciliation",
+				"enable_team_membership",
+				"groups_claim",
 			)
 		}
 		self.site_url = get_url()
@@ -272,7 +288,7 @@ class TestKeycloak(IntegrationTestCase):
 	def _sign_in_as_new_browser(self, username):
 		browser = Browser()
 		page = self._sign_in(username, browser)
-		self.assertEqual(page.status, 302, page.text[:300])
+		self.assertEqual(page.status, 302, re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", page.text))[:600])
 		return browser
 
 	# Signing in
@@ -369,6 +385,94 @@ class TestKeycloak(IntegrationTestCase):
 		)
 		self.assertEqual(finished.status, 403, finished.text[:300])
 		self.assertIsNone(self._binding(ACTIVE))
+
+	# Teams from groups
+
+	def _take_teams_from_groups(self):
+		frappe.db.set_single_value("SSO Identity Settings", "enable_team_membership", 1)
+		frappe.db.set_single_value("SSO Identity Settings", "groups_claim", "groups")
+		frappe.db.commit()
+
+	def _record_groups(self):
+		received = []
+
+		def handler(user, groups):
+			received.append((user, groups))
+			return []
+
+		patcher = patch.object(team_membership, "_get_handlers", return_value=[handler])
+		patcher.start()
+		self.addCleanup(patcher.stop)
+		return received
+
+	def test_keycloak_sends_the_full_path_of_the_groups(self):
+		self._take_teams_from_groups()
+		received = self._record_groups()
+		self.assertEqual(self._sign_in("sso.active").status, 302)
+		self.assertEqual(received, [(ACTIVE, ["/ucm/caseworkers"])])
+
+	def test_a_person_keycloak_sends_no_claim_for_signs_in_with_no_groups(self):
+		"""Keycloak leaves the claim out for someone in no group, rather than sending an empty list."""
+		self._take_teams_from_groups()
+		received = self._record_groups()
+		self.assertEqual(self._sign_in("sso.leaver").status, 302)
+		self.assertEqual(received, [(LEAVER, [])])
+
+	def test_groups_give_and_take_a_real_ucm_team_and_its_roles(self):
+		if "ucm" not in frappe.get_installed_apps():
+			self.skipTest("UCM is not installed")
+		self._take_teams_from_groups()
+		team = self._ucm_team_of_group("/ucm/caseworkers")
+
+		browser = self._sign_in_as_new_browser("sso.active")
+
+		self.assertEqual(self._team_members(team), [ACTIVE])
+		self.assertEqual(browser.signed_in_user(self.site_url), ACTIVE)
+		self.assertIn("UCM User", frappe.get_roles(ACTIVE))
+		self.assertTrue(
+			frappe.db.exists("SSO Identity Assignment Log", {"event_type": "Team Added", "user": ACTIVE})
+		)
+
+		self.admin.remove_from_groups(ACTIVE)
+		self._sign_in_as_new_browser("sso.active")
+
+		self.assertEqual(self._team_members(team), [])
+		frappe.clear_cache(user=ACTIVE)
+		self.assertNotIn("UCM User", frappe.get_roles(ACTIVE))
+		self.assertTrue(
+			frappe.db.exists("SSO Identity Assignment Log", {"event_type": "Team Removed", "user": ACTIVE})
+		)
+
+	def _ucm_team_of_group(self, group):
+		if not frappe.db.exists("Role Profile", UCM_TEST_JOB):
+			frappe.get_doc(
+				{"doctype": "Role Profile", "role_profile": UCM_TEST_JOB, "roles": [{"role": "UCM User"}]}
+			).insert(ignore_permissions=True)
+		team = frappe.get_doc(
+			{
+				"doctype": "Team",
+				"team_name": UCM_TEST_TEAM,
+				"team_idp_group": group,
+				"team_role_profiles": [{"role_profile": UCM_TEST_JOB}],
+			}
+		).insert(ignore_permissions=True)
+		frappe.db.commit()
+		self.addCleanup(self._remove_ucm_team, team.name)
+		return team.name
+
+	def _remove_ucm_team(self, team):
+		frappe.db.rollback()
+		frappe.delete_doc("Team", team, force=1)
+		remove_traces_of_deleted("Team", (team,))
+		frappe.db.delete("Version", {"ref_doctype": "Team", "docname": team})
+		frappe.db.delete("Version", {"ref_doctype": "User", "docname": ("in", USERS)})
+		frappe.delete_doc("Role Profile", UCM_TEST_JOB, force=1)
+		remove_traces_of_deleted("Role Profile", (UCM_TEST_JOB,))
+		frappe.db.commit()
+
+	def _team_members(self, team):
+		frappe.db.rollback()
+		return frappe.get_all("Team Member", filters={"parent": team, "parenttype": "Team"}, pluck="user")
 
 	# Logging out
 
