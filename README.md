@@ -26,6 +26,7 @@ Detailed guides are available in the [`docs/`](docs/) directory:
 - [02 - Configuration and Deployment Guide](docs/02-configuration-and-deployment.md): Setting up `site_config.json`, Social Login Key, and CLI emergency bypass (`bench browse`).
 - [03 - Local Development with Dex OIDC Provider](docs/03-local-development-with-dex.md): Walkthrough of running the local Dex OIDC service via `dev/docker-compose.dex.yml` and testing logins.
 - [04 - Local Development with Keycloak](docs/04-local-development-with-keycloak.md): Running against a real Keycloak in ICRC's dev container template, and the end-to-end test.
+- [Review notes for `feat/oidc-callback`](docs/review-notes-feat-oidc-callback.md): What this branch fixes and changes, and where a reviewer's judgement is wanted.
 
 ---
 
