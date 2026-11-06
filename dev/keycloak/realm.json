@@ -1,0 +1,72 @@
+{
+  "realm": "frappe-sso-guard",
+  "enabled": true,
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "frappe-sso-guard",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:8000/*"],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "+"
+      }
+    },
+    {
+      "clientId": "frappe-sso-guard-directory",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "sso.active",
+      "email": "sso.active@example.org",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Active",
+      "lastName": "Person"
+    },
+    {
+      "username": "sso.disabled",
+      "email": "sso.disabled@example.org",
+      "emailVerified": true,
+      "enabled": false,
+      "firstName": "Disabled",
+      "lastName": "Person"
+    },
+    {
+      "username": "sso.unverified",
+      "email": "sso.unverified@example.org",
+      "emailVerified": false,
+      "enabled": true,
+      "firstName": "Unverified",
+      "lastName": "Person"
+    },
+    {
+      "username": "sso.leaver",
+      "email": "sso.leaver@example.org",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Leaving",
+      "lastName": "Person"
+    },
+    {
+      "username": "service-account-frappe-sso-guard-directory",
+      "enabled": true,
+      "serviceAccountClientId": "frappe-sso-guard-directory",
+      "clientRoles": {
+        "realm-management": ["view-users"]
+      }
+    }
+  ]
+}

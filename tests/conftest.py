@@ -9,6 +9,7 @@ import pytest
 
 # Every module under test holds its own reference to frappe, so each one is patched where it is used.
 MODULES_USING_FRAPPE = (
+	"frappe_sso_guard.commands",
 	"frappe_sso_guard.guard.password_guard",
 	"frappe_sso_guard.guard.session_guard",
 	"frappe_sso_guard.guard.site_settings",
