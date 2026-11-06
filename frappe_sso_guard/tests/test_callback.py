@@ -6,6 +6,7 @@ import hashlib
 import json
 import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from unittest.mock import ANY, MagicMock, patch
 from urllib.parse import parse_qs, urlparse
 
@@ -29,6 +30,7 @@ CLIENT_ID = "test-client"
 UNTRUSTED_TOKEN_URL = "https://untrusted.example.org/token"
 PAYLOAD = "<img src=x onerror=alert(1)>"
 SSO_USER = "sso.person@example.org"
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _generate_key():
@@ -129,6 +131,29 @@ def _entra(**claims) -> MockIdentityProvider:
 			**claims,
 		},
 	)
+
+
+class TestMockMatchesKeycloak(IntegrationTestCase):
+	"""The fixtures are what a real Keycloak answered, so the mock cannot drift into something else."""
+
+	def _fixture(self, name):
+		return json.loads((FIXTURES / name).read_text())
+
+	def test_every_claim_the_mock_signs_is_one_keycloak_sends_with_the_same_type(self):
+		real = self._fixture("keycloak_id_token_claims.json")
+		mock = jwt.decode(_keycloak().id_token(), options={"verify_signature": False})
+		for name, value in mock.items():
+			self.assertIn(name, real)
+			self.assertIs(type(value), type(real[name]), name)
+
+	def test_discovery_of_the_mock_is_a_part_of_keycloaks(self):
+		real = self._fixture("keycloak_discovery.json")
+		self.assertLessEqual(set(_keycloak().discovery()), set(real))
+		self.assertEqual(
+			urlparse(_keycloak().jwks_uri).path.partition("/protocol/")[2], "openid-connect/certs"
+		)
+		self.assertTrue(real["jwks_uri"].endswith("/protocol/openid-connect/certs"))
+		self.assertIn("S256", real["code_challenge_methods_supported"])
 
 
 class TestCallback(IntegrationTestCase):
