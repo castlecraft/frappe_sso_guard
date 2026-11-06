@@ -159,6 +159,10 @@ class TestCallback(IntegrationTestCase):
 		sendmail = patch.object(frappe, "sendmail")
 		self.sendmail = sendmail.start()
 		self.addCleanup(sendmail.stop)
+		# Error Log is MyISAM: its rows outlive the rollback.
+		log_error = patch.object(frappe, "log_error")
+		log_error.start()
+		self.addCleanup(log_error.stop)
 		frappe.set_user("Guest")
 
 	def tearDown(self):

@@ -12,6 +12,7 @@ from frappe.utils.password import update_password
 
 from frappe_sso_guard.guard import login_page, session_guard
 from frappe_sso_guard.guard.login_page import LOGOUT_COOKIE
+from frappe_sso_guard.tests.utils import remove_traces_of_deleted, remove_traces_of_deleted_users
 
 PROVIDER_KEY = "test_sso_login_page"
 ISSUER = "https://idp.example.org/realms/test"
@@ -96,7 +97,9 @@ class TestLoginPage(IntegrationTestCase):
 		frappe.db.delete("Error Log", {"method": "Single logout could not start"})
 		for email in (USER, BREAK_GLASS):
 			frappe.delete_doc_if_exists("User", email, force=1)
+		remove_traces_of_deleted_users((USER, BREAK_GLASS))
 		frappe.delete_doc_if_exists("Social Login Key", PROVIDER_KEY, force=1)
+		remove_traces_of_deleted("Social Login Key", (PROVIDER_KEY,))
 		frappe.cache.delete_value(f"oidc_discovery_{ISSUER}")
 		frappe.db.commit()
 

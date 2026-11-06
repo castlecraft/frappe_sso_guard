@@ -12,6 +12,11 @@ from frappe_sso_guard.guard.session_guard import enforce_session_guard
 class TestSessionGuard(unittest.TestCase):
 	def setUp(self):
 		frappe.flags.oidc_session_authorized = False
+		# The users here do not exist, so the audit entry fails and logs that, and Error Log is
+		# MyISAM: its rows outlive a rollback.
+		log_error = patch.object(frappe, "log_error")
+		log_error.start()
+		self.addCleanup(log_error.stop)
 
 	def tearDown(self):
 		frappe.flags.oidc_session_authorized = False

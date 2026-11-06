@@ -11,6 +11,7 @@ from frappe.utils import get_test_client, set_request
 from frappe.utils.password import check_password, update_password
 
 from frappe_sso_guard.guard import password_guard, session_guard
+from frappe_sso_guard.tests.utils import remove_traces_of_deleted_users
 
 USER = "sso.path.user@example.com"
 BREAK_GLASS = "sso.path.break.glass@example.com"
@@ -80,6 +81,7 @@ class TestRequests(SignInPathsTestCase):
 		frappe.db.delete("SSO Identity Assignment Log", {"user": ("in", (USER, BREAK_GLASS))})
 		for email in (USER, BREAK_GLASS):
 			frappe.delete_doc_if_exists("User", email, force=1)
+		remove_traces_of_deleted_users((USER, BREAK_GLASS))
 		frappe.db.commit()
 
 	def _post(self, path, **data):
