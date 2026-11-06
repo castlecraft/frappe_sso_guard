@@ -51,7 +51,7 @@
 
 **Suggested reading order for these:** `services/team_membership.py`, the `handle_callback` hunk in `api/callback.py`, then `commands.py`.
 
-**The team membership hooks.** An app holding teams names a function in `sso_set_user_teams`, and this app offers `ucm_team_membership_from_idp`, so neither app needs the other. UCM's side is in a separate pull request to `icrc/frappe_prot_ucm_core`, not yet raised.
+**The team membership hooks.** An app holding teams names a function in `sso_set_user_teams`, and this app offers `ucm_team_membership_from_idp`, so neither app needs the other. UCM's side goes in a separate pull request to UCM's own repository, not yet raised.
 
 **What a real Keycloak showed that mocks could not:**
 
