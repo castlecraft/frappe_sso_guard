@@ -1,0 +1,11 @@
+{
+ "issuer": "http://localhost:8080/realms/frappe",
+ "authorization_endpoint": "http://localhost:8080/realms/frappe/protocol/openid-connect/auth",
+ "token_endpoint": "http://localhost:8080/realms/frappe/protocol/openid-connect/token",
+ "jwks_uri": "http://localhost:8080/realms/frappe/protocol/openid-connect/certs",
+ "end_session_endpoint": "http://localhost:8080/realms/frappe/protocol/openid-connect/logout",
+ "code_challenge_methods_supported": [
+  "plain",
+  "S256"
+ ]
+}

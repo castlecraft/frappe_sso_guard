@@ -11,13 +11,34 @@ dependencies = [
     # "frappe~=16.0.0" # Installed and managed by bench.
 ]
 
+[project.optional-dependencies]
+ci = [
+    "pre-commit>=3.7.0",
+    "pytest==8.4.2",
+    "pytest-cov>=6.0.0",
+    "pytest-mock>=3.14.0",
+]
+
 [build-system]
 requires = ["flit_core >=3.4,<4"]
 build-backend = "flit_core.buildapi"
 
 # These dependencies are only installed when developer mode is enabled
 [tool.bench.dev-dependencies]
-# package_name = "~=1.1.0"
+pytest = "==8.4.2"
+pytest-cov = ">=6.0.0"
+pytest-mock = ">=3.14.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers"
+markers = [
+    "unit: runs with Frappe mocked, without a site, database or network",
+    "security: guards a sign-in or token check",
+]
+
+[tool.coverage.run]
+omit = ["*/tests/*"]
 
 # These apt dependencies will be installed from Ubuntu repositories when you host your app on Frappe Cloud
 [deploy.dependencies.apt]

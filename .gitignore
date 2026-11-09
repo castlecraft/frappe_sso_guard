@@ -53,3 +53,8 @@ jspm_packages/
 
 # Aider AI Chat
 .aider*
+
+# Test output
+.pytest_cache/
+.coverage
+coverage.xml

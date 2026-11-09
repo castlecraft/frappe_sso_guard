@@ -1,0 +1,42 @@
+name: Pytest
+
+on:
+  push:
+    branches:
+      - version-16
+  pull_request:
+
+concurrency:
+  group: pytest-frappe_sso_guard-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    name: pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmariadb-dev pkg-config
+          pip install -e "git+https://github.com/frappe/frappe.git@version-16#egg=frappe"
+          pip install -e ".[ci]"
+
+      - name: Run tests
+        run: pytest -v --cov=frappe_sso_guard --cov-report=term --cov-report=xml
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml

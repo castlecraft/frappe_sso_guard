@@ -1,6 +1,6 @@
 {
  "actions": [],
- "creation": "2026-11-01 11:27:00.000000",
+ "creation": "2026-11-01 11:27:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -27,7 +27,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Event Type",
-   "options": "Login Success\nSession Refused\nAdmin CLI Bypass\nUser Bound\nEmail Changed\nAPI Key Alert\nUser Created",
+   "options": "Login Success\nSession Refused\nAdmin CLI Bypass\nUser Bound\nEmail Changed\nAPI Key Alert\nUser Created\nBreak-Glass Login\nInactive Users Report Sent\nUser Disabled\nReconciliation Run\nReconciliation Aborted\nAPI Key Created\nSite Settings Aligned\nTeam Added\nTeam Removed",
    "reqd": 1
   },
   {
@@ -66,26 +66,23 @@
   }
  ],
  "links": [],
- "modified": "2026-11-01 11:27:00.000000",
+ "modified": "2026-11-06 13:23:29.749582",
  "modified_by": "Administrator",
  "module": "Frappe SSO Guard",
  "name": "SSO Identity Assignment Log",
  "owner": "Administrator",
  "permissions": [
   {
-   "create": 1,
-   "delete": 0,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "role": "System Manager",
-   "share": 1,
-   "write": 0
+   "share": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "timestamp",
  "sort_order": "DESC",
- "states": [],
- "track_changes": 0
+ "states": []
 }

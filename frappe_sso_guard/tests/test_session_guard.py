@@ -1,3 +1,6 @@
+# Copyright (c) 2026, International Committee of the Red Cross and contributors
+# For license information, please see license.txt
+
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -9,6 +12,11 @@ from frappe_sso_guard.guard.session_guard import enforce_session_guard
 class TestSessionGuard(unittest.TestCase):
 	def setUp(self):
 		frappe.flags.oidc_session_authorized = False
+		# The users here do not exist, so the audit entry fails and logs that, and Error Log is
+		# MyISAM: its rows outlive a rollback.
+		log_error = patch.object(frappe, "log_error")
+		log_error.start()
+		self.addCleanup(log_error.stop)
 
 	def tearDown(self):
 		frappe.flags.oidc_session_authorized = False
@@ -23,7 +31,43 @@ class TestSessionGuard(unittest.TestCase):
 		mock_lm = MagicMock(user="Administrator")
 		frappe.local.http_request = None
 		try:
-			enforce_session_guard(mock_lm)
+			with patch("frappe_sso_guard.guard.session_guard.log_audit_event") as log:
+				enforce_session_guard(mock_lm)
+			self.assertEqual(log.call_args.kwargs["event_type"], "Admin CLI Bypass")
+		finally:
+			if hasattr(frappe.local, "http_request"):
+				delattr(frappe.local, "http_request")
+
+	def test_administrator_is_refused_when_sso_is_not_forced(self):
+		mock_lm = MagicMock(user="Administrator")
+		frappe.local.http_request = MagicMock()
+		try:
+			with (
+				patch.dict(frappe.conf, {"force_sso": 0}),
+				patch(
+					"frappe_sso_guard.guard.session_guard.is_bound_to_identity_provider", return_value=False
+				),
+				patch("frappe_sso_guard.guard.session_guard.log_audit_event"),
+				self.assertRaises(frappe.PermissionError),
+			):
+				enforce_session_guard(mock_lm)
+		finally:
+			if hasattr(frappe.local, "http_request"):
+				delattr(frappe.local, "http_request")
+
+	def test_bound_user_is_refused_when_sso_is_not_forced(self):
+		"""A site serving people the provider does not know still holds its staff to the provider."""
+		mock_lm = MagicMock(user="bound_user@example.com")
+		frappe.local.http_request = MagicMock()
+		try:
+			with (
+				patch.dict(frappe.conf, {"force_sso": 0}),
+				patch(
+					"frappe_sso_guard.guard.session_guard.is_bound_to_identity_provider", return_value=True
+				),
+				self.assertRaises(frappe.PermissionError),
+			):
+				enforce_session_guard(mock_lm)
 		finally:
 			if hasattr(frappe.local, "http_request"):
 				delattr(frappe.local, "http_request")
