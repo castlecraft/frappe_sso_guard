@@ -72,7 +72,8 @@ class TestReconciliation(IntegrationTestCase):
 		return status
 
 	def _bound_user(self, name, status=ACCOUNT_ACTIVE):
-		email = f"{name}@example.org"
+		# Not the realm file's addresses: a developer's own sign-ins through setup_keycloak created those.
+		email = f"test.{name}@example.org"
 		frappe.get_doc(
 			{
 				"doctype": "User",

@@ -1,10 +1,10 @@
 # frappe_sso_guard: review notes for `feat/oidc-callback`
 
-**Base:** `4fe952a` (`version-16`). **Head:** `6b076b5`, plus the commit adding this file. 19 commits, 61 files, +6,482 / -568. If you read the earlier `2f9132e`, start at section 3: 7 commits are new.
+**Base:** `4fe952a` (`version-16`). **Head:** `3a98ea0`, merged into `version-16` by pull request #1 as `4eeb04b`. 22 commits, 63 files, +6,589 / -569. If you read the earlier `2f9132e`, start at section 3: 10 commits are new.
 
-**Note:** section 1 describes weaknesses in the code on `version-16`, which is still unfixed until this branch is merged.
+**Note:** section 1 describes weaknesses in `4fe952a` and earlier. `version-16` has them fixed from `4eeb04b`, so a site on an earlier copy should update.
 
-**State:** ready for review. Pushed, with no pull request yet, so CI has not run. It now runs against a real Keycloak, in ICRC's dev container template on Frappe 16.35.0. Entra ID is still tested only against a mock.
+**State:** merged, with no review comments, so the questions in section 4 are still open. CI passed on the pull request and on the merge. It runs against a real Keycloak, in ICRC's dev container template on Frappe 16.35.0. Entra ID is still tested only against a mock.
 
 ## 1. Problems in `4fe952a` that this fixes
 
@@ -48,6 +48,8 @@
 | `7e83908` | Test from real Keycloak groups to a real UCM Team, where UCM is installed |
 | `03b7bc4` | Docs: team membership |
 | `6b076b5` | Warning on the settings page while a schedule is set and Frappe's scheduler is off |
+| `4e2211b`, `14b3a7e` | These notes |
+| `3a98ea0` | CI's server tests run on Frappe `version-16`. `bench init` otherwise takes `develop`, where 71 fail |
 
 **Suggested reading order for these:** `services/team_membership.py`, the `handle_callback` hunk in `api/callback.py`, then `commands.py`.
 
@@ -100,6 +102,10 @@ pip install -e ".[ci]" && pytest      # from the app's folder, needs no site
 |---|---|
 | ICRC's template, Frappe 16.35.0, Keycloak 26.8.1, at `03b7bc4` | 199 Frappe tests passed with none skipped, 117 pytest, and a real browser 9 of 9 |
 | Same stack, Frappe's own scheduler running reconciliation | Passed: one run; the 15-minute repeat was not observed |
+| Same stack after the merge, at `07f0ad8`: `4eeb04b` and the test fix below | 200 Frappe tests passed with none skipped, 117 pytest |
+| GitHub CI on `3a98ea0` and on the merge `4eeb04b`, Frappe `version-16` on MariaDB 11.8 and 10.6 | 184 Frappe tests passed with `test_keycloak` skipped, 117 pytest, linters clean |
 | Frappe 16.52.0 at `6b076b5`, with no Keycloak running | 184 Frappe tests passed with `test_keycloak` skipped, 117 pytest, pre-commit clean |
 
-`6b076b5` has not run on 16.35.0. On a site that created more than 60 users in the last hour, the Frappe tests fail with `Throttled`.
+**After the merge.** `4eeb04b` failed two tests in that stack, where a person had signed in by hand through `setup_keycloak` and the break-glass key named Administrator: the reconciliation test created the realm's own `sso.active@example.org`, and the Administrator test did not clear the break-glass key. The code they test was right. `07f0ad8` fixes both tests, and the run above is with it.
+
+On a site that created more than 60 users in the last hour, the Frappe tests fail with `Throttled`.
