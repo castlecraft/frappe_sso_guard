@@ -102,7 +102,10 @@ pip install -e ".[ci]" && pytest      # from the app's folder, needs no site
 |---|---|
 | ICRC's template, Frappe 16.35.0, Keycloak 26.8.1, at `03b7bc4` | 199 Frappe tests passed with none skipped, 117 pytest, and a real browser 9 of 9 |
 | Same stack, Frappe's own scheduler running reconciliation | Passed: one run; the 15-minute repeat was not observed |
+| Same stack after the merge, at `07f0ad8`: `4eeb04b` and the test fix below | 200 Frappe tests passed with none skipped, 117 pytest |
 | GitHub CI on `3a98ea0` and on the merge `4eeb04b`, Frappe `version-16` on MariaDB 11.8 and 10.6 | 184 Frappe tests passed with `test_keycloak` skipped, 117 pytest, linters clean |
 | Frappe 16.52.0 at `6b076b5`, with no Keycloak running | 184 Frappe tests passed with `test_keycloak` skipped, 117 pytest, pre-commit clean |
 
-The commits after `03b7bc4` have not run on 16.35.0. On a site that created more than 60 users in the last hour, the Frappe tests fail with `Throttled`.
+**After the merge.** `4eeb04b` failed two tests in that stack, where a person had signed in by hand through `setup_keycloak` and the break-glass key named Administrator: the reconciliation test created the realm's own `sso.active@example.org`, and the Administrator test did not clear the break-glass key. The code they test was right. `07f0ad8` fixes both tests, and the run above is with it.
+
+On a site that created more than 60 users in the last hour, the Frappe tests fail with `Throttled`.
