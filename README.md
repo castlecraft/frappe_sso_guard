@@ -90,7 +90,7 @@ This app is still being built. Check the following before relying on it.
 
 ### Testing
 
-- Keycloak: `tests/test_keycloak.py` passes against the real Keycloak 26.8.1 container image and against 26.8.1 and 26.6.0 from the zip, and skips where none is running, as in CI. ICRC's dev container stack itself has not yet been started with this app. See [Local Development with Keycloak](docs/04-local-development-with-keycloak.md).
+- Keycloak: `tests/test_keycloak.py` passes against the real Keycloak 26.8.1 container image and against 26.8.1 and 26.6.0 from the zip, and skips where none is running, as in CI. In ICRC's public dev container template, on Frappe 16.35.0, all 199 Frappe tests pass with its Keycloak, and so does a sign-in through a real browser; ICRC's own stack built from that template has not been tried. See [Local Development with Keycloak](docs/04-local-development-with-keycloak.md).
 - Entra ID: tested only against a mock. Nothing has been tried against a real tenant.
 - `setup_dex` has no tests.
 - The pytest suite does not yet cover `api/callback.py` or `services/user_matching.py`; the Frappe suite tests the callback.
