@@ -43,7 +43,8 @@ class TestSessionGuard(unittest.TestCase):
 		frappe.local.http_request = MagicMock()
 		try:
 			with (
-				patch.dict(frappe.conf, {"force_sso": 0}),
+				# A site may name Administrator as its break-glass account, which would let it through.
+				patch.dict(frappe.conf, {"force_sso": 0, "sso_break_glass_user": None}),
 				patch(
 					"frappe_sso_guard.guard.session_guard.is_bound_to_identity_provider", return_value=False
 				),
