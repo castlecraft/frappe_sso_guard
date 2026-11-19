@@ -173,8 +173,7 @@ class KeycloakAdmin:
 
 
 class TestKeycloak(IntegrationTestCase):
-	"""The whole sign-in against a real Keycloak. It needs one running and its admin password in
-	KEYCLOAK_PASSWORD, so it skips in CI. docs/04 has how to run it.
+	"""Exercise real Keycloak sign-in and service tokens when KEYCLOAK_PASSWORD is set.
 
 	Frappe's requests run on their own connection, so what they read is committed and removed afterwards.
 	"""
@@ -185,10 +184,7 @@ class TestKeycloak(IntegrationTestCase):
 		cls.admin_password = os.environ.get("KEYCLOAK_PASSWORD")
 		if not cls.admin_password:
 			raise unittest.SkipTest("KEYCLOAK_PASSWORD is not set")
-		try:
-			requests.get(f"{KEYCLOAK_URL}/realms/master", timeout=5).raise_for_status()
-		except requests.RequestException as e:
-			raise unittest.SkipTest(f"No Keycloak at {KEYCLOAK_URL}") from e
+		requests.get(f"{KEYCLOAK_URL}/realms/master", timeout=5).raise_for_status()
 
 	def setUp(self):
 		# Through the document: get_single_value turns an empty date into the year 1.

@@ -75,7 +75,9 @@ bench --site dev.localhost set-config allow_tests true
 bench --site dev.localhost run-tests --app frappe_sso_guard --module frappe_sso_guard.tests.test_keycloak
 ```
 
-It needs `KEYCLOAK_PASSWORD` and a Keycloak at `KEYCLOAK_URL` (default `http://localhost:8080`, so the forwarder must be running). Without either it skips, which is how CI runs it. CI's own proof is the mock in `test_callback.py`, kept honest by the real responses saved in [`frappe_sso_guard/tests/fixtures/`](../frappe_sso_guard/tests/fixtures/).
+The **Full Server Tests** pull-request job starts a disposable Keycloak 26.6.0 with a generated admin password. It exercises the client-credentials exchange and checks that Frappe returns the mapped service user. The UCM team test additionally requires UCM on the test site.
+
+For a local run, set `KEYCLOAK_PASSWORD` and point `KEYCLOAK_URL` at the test server (default `http://localhost:8080`). Without a password the class skips. Once you supply one, an unreachable Keycloak fails the run.
 
 ## 5. Without a container
 
