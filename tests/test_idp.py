@@ -1,9 +1,7 @@
 # Copyright (c) 2026, International Committee of the Red Cross and contributors
 # For license information, please see license.txt
 
-import json
 import time
-from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -177,12 +175,11 @@ def test_retired_signing_key_is_rejected_after_a_key_set_refresh(mocker, signing
 	public_key = jwt.algorithms.RSAAlgorithm.to_jwk(signing_key.public_key(), as_dict=True)
 	replacement = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 	new_public_key = jwt.algorithms.RSAAlgorithm.to_jwk(replacement.public_key(), as_dict=True)
-	key_set = {"keys": [{**public_key, "kid": "old"}]}
-	mocker.patch("urllib.request.urlopen", side_effect=lambda *a, **kw: BytesIO(json.dumps(key_set).encode()))
-
 	client = idp.get_jwk_client(JWKS_URI)
+	get_key_set = mocker.patch.object(client, "get_jwk_set")
+	get_key_set.return_value = jwt.PyJWKSet.from_dict({"keys": [{**public_key, "kid": "old"}]})
 	assert client.get_signing_key("old").key_id == "old"
-	key_set["keys"] = [{**new_public_key, "kid": "new"}]
+	get_key_set.return_value = jwt.PyJWKSet.from_dict({"keys": [{**new_public_key, "kid": "new"}]})
 	assert client.get_signing_key("new").key_id == "new"
 	with pytest.raises(jwt.PyJWKClientError):
 		client.get_signing_key("old")
