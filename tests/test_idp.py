@@ -1,7 +1,9 @@
 # Copyright (c) 2026, International Committee of the Red Cross and contributors
 # For license information, please see license.txt
 
+import json
 import time
+from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -126,6 +128,14 @@ def test_discovery_from_the_cache_makes_no_request(mock_frappe, mocker):
 	get.assert_not_called()
 
 
+def test_invalid_cached_endpoints_are_replaced(mock_frappe, mocker):
+	mock_frappe.cache.get_value.return_value = {**DISCOVERY, "token_endpoint": ["not a URL"]}
+	mocker.patch.object(idp.requests, "get").return_value.json.return_value = DISCOVERY
+
+	assert idp.get_openid_configuration(ISSUER) == DISCOVERY
+	mock_frappe.cache.set_value.assert_called_once()
+
+
 @pytest.mark.security
 def test_discovery_naming_another_issuer_is_refused_and_not_cached(mock_frappe, mocker):
 	get = mocker.patch.object(idp.requests, "get")
@@ -145,12 +155,37 @@ def test_discovery_lacking_an_endpoint_is_refused(mocker, field):
 		idp.get_openid_configuration(ISSUER)
 
 
+@pytest.mark.parametrize("document", [None, [], {**DISCOVERY, "jwks_uri": ["not a URL"]}])
+def test_malformed_discovery_is_refused_and_not_cached(mock_frappe, mocker, document):
+	mocker.patch.object(idp.requests, "get").return_value.json.return_value = document
+
+	with pytest.raises(ValueError):
+		idp.get_openid_configuration(ISSUER)
+	mock_frappe.cache.set_value.assert_not_called()
+
+
 def test_jwk_client_is_built_once_per_uri(mocker):
 	mocker.patch.dict(idp.JWKS_CACHE, clear=True)
 	client_class = mocker.patch.object(idp, "PyJWKClient")
 
 	assert idp.get_jwk_client(JWKS_URI) is idp.get_jwk_client(JWKS_URI)
 	client_class.assert_called_once()
+
+
+def test_retired_signing_key_is_rejected_after_a_key_set_refresh(mocker, signing_key):
+	mocker.patch.dict(idp.JWKS_CACHE, clear=True)
+	public_key = jwt.algorithms.RSAAlgorithm.to_jwk(signing_key.public_key(), as_dict=True)
+	replacement = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+	new_public_key = jwt.algorithms.RSAAlgorithm.to_jwk(replacement.public_key(), as_dict=True)
+	key_set = {"keys": [{**public_key, "kid": "old"}]}
+	mocker.patch("urllib.request.urlopen", side_effect=lambda *a, **kw: BytesIO(json.dumps(key_set).encode()))
+
+	client = idp.get_jwk_client(JWKS_URI)
+	assert client.get_signing_key("old").key_id == "old"
+	key_set["keys"] = [{**new_public_key, "kid": "new"}]
+	assert client.get_signing_key("new").key_id == "new"
+	with pytest.raises(jwt.PyJWKClientError):
+		client.get_signing_key("old")
 
 
 def test_code_challenge_matches_the_rfc_7636_example():
