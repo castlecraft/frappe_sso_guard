@@ -212,6 +212,9 @@ class TestKeycloak(IntegrationTestCase):
 		for user in realm["users"]:
 			if user.get("email"):
 				user["email"] = f"test.{user['email']}"
+		# Each test recreates this issuer with new signing keys. Give it a fresh JWKS client,
+		# as a previous realm's unexpired key set can still be in its refresh cooldown.
+		self.enterContext(patch.dict(idp.JWKS_CACHE, clear=True))
 		self.secrets = commands.create_keycloak_realm(KEYCLOAK_URL, self.admin_password, realm, self.site_url)
 		self.admin = KeycloakAdmin(self.admin_password)
 		self.addCleanup(self.admin.delete_realm)

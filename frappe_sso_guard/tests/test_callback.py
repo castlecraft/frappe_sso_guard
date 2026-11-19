@@ -728,7 +728,9 @@ class TestCallback(IntegrationTestCase):
 		self.assertEqual(frappe.session.user, SSO_USER)
 		sid = frappe.session.sid
 		# Outside the transaction the test rolls back.
-		self.addCleanup(frappe.cache.hdel, "session", sid)
+		# Recent Frappe v16 stores sessions under the hash of the cookie value.
+		self.session_key = getattr(frappe.local.session_obj, "sid_hash", sid)
+		self.addCleanup(frappe.cache.hdel, "session", self.session_key)
 		self.addCleanup(delattr, frappe.local, "session_obj")
 		return sid, datetime.fromisoformat(frappe.session.data.session_end)
 
@@ -746,54 +748,61 @@ class TestCallback(IntegrationTestCase):
 			frappe.local.session_obj.update()
 		return frappe.session.user
 
-	def _session_row(self, sid: str) -> dict | None:
+	def _session_row(self) -> dict | None:
 		sessions = frappe.qb.DocType("Sessions")
 		rows = (
-			frappe.qb.from_(sessions).select(sessions.sessiondata).where(sessions.sid == sid).run(pluck=True)
+			frappe.qb.from_(sessions)
+			.select(sessions.sessiondata)
+			.where(sessions.sid == self.session_key)
+			.run(pluck=True)
 		)
 		return frappe.parse_json(rows[0]) if rows else None
 
-	def _assert_session_ended(self, sid: str):
+	def _cached_session_end(self):
+		record = frappe.cache.hget("session", self.session_key)
+		return record.get("data", record).session_end
+
+	def _assert_session_ended(self):
 		self.assertEqual(frappe.local.response.get("session_expired"), 1)
-		self.assertIsNone(self._session_row(sid))
-		self.assertIsNone(frappe.cache.hget("session", sid))
+		self.assertIsNone(self._session_row())
+		self.assertIsNone(frappe.cache.hget("session", self.session_key))
 
 	def test_the_end_reaches_frappes_session_in_cache_and_database(self):
-		sid, session_end = self._open_session(hours=3)
+		_, session_end = self._open_session(hours=3)
 		stored = session_end.isoformat()
-		self.assertEqual(frappe.cache.hget("session", sid).data.session_end, stored)
-		self.assertEqual(self._session_row(sid).session_end, stored)
+		self.assertEqual(self._cached_session_end(), stored)
+		self.assertEqual(self._session_row().session_end, stored)
 
 	def test_session_before_its_end_is_kept(self):
 		sid, session_end = self._open_session(hours=1)
 		self.assertEqual(self._request_at(session_end - timedelta(seconds=1), sid), SSO_USER)
-		self.assertIsNotNone(self._session_row(sid))
+		self.assertIsNotNone(self._session_row())
 
 	def test_session_past_its_end_is_refused(self):
 		sid, session_end = self._open_session(hours=1)
 		self.assertEqual(self._request_at(session_end + timedelta(seconds=1), sid), "Guest")
-		self._assert_session_ended(sid)
+		self._assert_session_ended()
 
 	def test_activity_does_not_extend_the_end(self):
 		sid, session_end = self._open_session(hours=1)
-		first_update = self._session_row(sid).last_updated
+		first_update = self._session_row().last_updated
 		for minutes_left in (40, 20, 1):
 			moment = session_end - timedelta(minutes=minutes_left)
 			self.assertEqual(self._request_at(moment, sid), SSO_USER)
 
 		# The activity counted: it moved the idle timeout, and only that.
-		self.assertNotEqual(self._session_row(sid).last_updated, first_update)
-		self.assertEqual(self._session_row(sid).session_end, session_end.isoformat())
-		self.assertEqual(frappe.cache.hget("session", sid).data.session_end, session_end.isoformat())
+		self.assertNotEqual(self._session_row().last_updated, first_update)
+		self.assertEqual(self._session_row().session_end, session_end.isoformat())
+		self.assertEqual(self._cached_session_end(), session_end.isoformat())
 
 		self.assertEqual(self._request_at(session_end + timedelta(seconds=1), sid), "Guest")
-		self._assert_session_ended(sid)
+		self._assert_session_ended()
 
 	def test_changing_the_setting_leaves_an_open_session_as_it_is(self):
 		sid, session_end = self._open_session(hours=5)
 		self._set_session_max_hours(1)
 		self.assertEqual(self._request_at(session_end - timedelta(hours=2), sid), SSO_USER)
-		self.assertEqual(self._session_row(sid).session_end, session_end.isoformat())
+		self.assertEqual(self._session_row().session_end, session_end.isoformat())
 
 	def test_idle_timeout_still_ends_a_session_before_its_end(self):
 		idle = timedelta(seconds=get_expiry_in_seconds())
@@ -805,13 +814,13 @@ class TestCallback(IntegrationTestCase):
 		moment = datetime.now(tz=UTC) + idle + timedelta(minutes=1)
 		self.assertLess(moment, session_end)
 		self.assertEqual(self._request_at(moment, sid), "Guest")
-		self._assert_session_ended(sid)
+		self._assert_session_ended()
 
 	def test_session_from_the_database_is_refused_on_the_following_request(self):
 		"""After a cache loss Frappe skips the check once, then the session is back in cache."""
 		sid, session_end = self._open_session(hours=1)
-		frappe.cache.hdel("session", sid)
+		frappe.cache.hdel("session", self.session_key)
 		past_end = session_end + timedelta(seconds=1)
 		self.assertEqual(self._request_at(past_end, sid), SSO_USER)
 		self.assertEqual(self._request_at(past_end, sid), "Guest")
-		self._assert_session_ended(sid)
+		self._assert_session_ended()
