@@ -21,6 +21,8 @@ Lightweight, robust OIDC Single Sign-On (SSO) guard app for Frappe v16.
 
 ## Documentation
 
+Open the [illustrated user and administrator manual](docs/user-manual.html) in a browser for setup instructions and screenshots. The HTML file includes its images and can be printed offline.
+
 Detailed guides are available in the [`docs/`](docs/) directory:
 
 - [01 - Architecture and Design](docs/01-architecture-and-design.md): Sequence flow, ID token verification, user matching, and session guard.
