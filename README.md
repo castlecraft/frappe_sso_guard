@@ -14,6 +14,7 @@ Lightweight, robust OIDC Single Sign-On (SSO) guard app for Frappe v16.
 - **Single Logout**: Logging out of Frappe also ends the identity provider's session.
 - **Reconciliation**: Disables Users the identity provider has disabled or removed, by hand or on a schedule, and stops if the answer looks wrong.
 - **API Key Controls**: Keys only for flagged Users held to the VPN, logged, and checked daily against the identity provider.
+- **Keycloak service accounts** can call the Frappe API with a client-credentials access token after a System Manager maps the service identity to a dedicated User. [Setup and verification](docs/02-configuration-and-deployment.md#13-keycloak-service-accounts)
 - **Append-Only Audit**: Every event in a log nothing clears, and as a structured line for the SOC.
 
 ---

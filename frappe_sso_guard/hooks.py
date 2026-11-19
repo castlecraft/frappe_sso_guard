@@ -11,6 +11,7 @@ app_license = "mit"
 export_python_type_annotations = True
 
 # Minimal, essential hooks
+auth_hooks = ["frappe_sso_guard.guard.service_accounts.authenticate"]
 on_login = "frappe_sso_guard.guard.session_guard.enforce_session_guard"
 on_logout = "frappe_sso_guard.guard.login_page.remember_logout"
 update_website_context = "frappe_sso_guard.guard.login_page.redirect_login_page"

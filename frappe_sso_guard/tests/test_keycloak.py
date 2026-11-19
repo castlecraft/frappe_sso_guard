@@ -293,6 +293,72 @@ class TestKeycloak(IntegrationTestCase):
 
 	# Signing in
 
+	def test_client_credentials_authenticates_the_mapped_service(self):
+		client_id = "reporting-service"
+		secret = frappe.generate_hash(length=32)
+		audience = "frappe-api"
+		created = self.admin._call(
+			"POST",
+			"/clients",
+			json={
+				"clientId": client_id,
+				"secret": secret,
+				"publicClient": False,
+				"serviceAccountsEnabled": True,
+				"standardFlowEnabled": False,
+				"directAccessGrantsEnabled": False,
+				"fullScopeAllowed": False,
+				"protocolMappers": [
+					{
+						"name": "frappe-api",
+						"protocol": "openid-connect",
+						"protocolMapper": "oidc-audience-mapper",
+						"config": {"included.custom.audience": audience, "access.token.claim": "true"},
+					}
+				],
+			},
+		)
+		client_uuid = created.headers["Location"].rsplit("/", 1)[1]
+		subject = self.admin._call("GET", f"/clients/{client_uuid}/service-account-user").json()["id"]
+		response = requests.post(
+			f"{ISSUER}/protocol/openid-connect/token",
+			auth=(client_id, secret),
+			data={"grant_type": "client_credentials"},
+			timeout=30,
+		)
+		response.raise_for_status()
+		token = response.json()["access_token"]
+		config = {"sso_issuer": ISSUER, "sso_service_token_audience": audience}
+		read_config = frappe.get_site_config
+		with (
+			patch.dict(frappe.conf, config),
+			patch.object(
+				frappe, "get_site_config", lambda **kw: frappe._dict({**read_config(**kw), **config})
+			),
+		):
+			mapping = frappe.get_doc(
+				{
+					"doctype": "SSO Service Account",
+					"enabled": 1,
+					"client_id": client_id,
+					"subject": subject,
+					"user": ACTIVE,
+				}
+			).insert()
+			frappe.db.commit()
+			try:
+				reply = make_request(
+					target=get_test_client(use_cookies=False).get,
+					args=("/api/method/frappe.auth.get_logged_user",),
+					kwargs={"headers": {"Authorization": f"Bearer {token}"}, "buffered": True},
+					site=frappe.local.site,
+				)
+				self.assertEqual(reply.status_code, 200)
+				self.assertEqual(reply.json["message"], ACTIVE)
+			finally:
+				frappe.delete_doc("SSO Service Account", mapping.name, delete_permanently=True)
+				frappe.db.commit()
+
 	def test_sign_in_binds_the_account_and_opens_a_session_that_ends_at_the_set_time(self):
 		claims = []
 		real_verify = callback.verify_id_token

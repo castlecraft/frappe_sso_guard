@@ -99,9 +99,8 @@ def get_openid_configuration(issuer_url: str) -> dict[str, Any]:
 def get_jwk_client(jwks_uri: str) -> PyJWKClient:
 	"""Returns a cached PyJWKClient instance for token signature verification."""
 	if jwks_uri not in JWKS_CACHE:
-		JWKS_CACHE[jwks_uri] = PyJWKClient(
-			jwks_uri, cache_keys=True, max_cached_keys=16, timeout=HTTP_TIMEOUT_SECONDS
-		)
+		# Cache the expiring key set. Caching individual keys indefinitely would keep retired keys valid.
+		JWKS_CACHE[jwks_uri] = PyJWKClient(jwks_uri, timeout=HTTP_TIMEOUT_SECONDS)
 	return JWKS_CACHE[jwks_uri]
 
 
