@@ -73,6 +73,20 @@ jobs:
             --version version-16 \
             ~/frappe-bench
 
+      - name: Start Keycloak for the integration tests
+        run: |
+          export KC_BOOTSTRAP_ADMIN_PASSWORD="$(openssl rand -hex 24)"
+          echo "::add-mask::$KC_BOOTSTRAP_ADMIN_PASSWORD"
+          docker run --detach --name keycloak --publish 127.0.0.1:18080:8080 \
+            --env KC_BOOTSTRAP_ADMIN_USERNAME=admin --env KC_BOOTSTRAP_ADMIN_PASSWORD \
+            quay.io/keycloak/keycloak:26.6.0 start-dev
+          issuer_host=http://127.0.0.1:18080
+          curl --fail --silent --show-error --output /dev/null \
+            --retry 45 --retry-all-errors --retry-delay 2 --max-time 5 \
+            "$issuer_host/realms/master/.well-known/openid-configuration"
+          echo "KEYCLOAK_URL=$issuer_host" >> "$GITHUB_ENV"
+          echo "KEYCLOAK_PASSWORD=$KC_BOOTSTRAP_ADMIN_PASSWORD" >> "$GITHUB_ENV"
+
       - name: Configure Site & Run Full Tests
         working-directory: /home/runner/frappe-bench
         run: |
@@ -92,7 +106,7 @@ jobs:
           bench set-config -g root_password "root"
           bench set-config -g admin_password admin
 
-          bench new-site test_site \
+          bench new-site test-site.localhost \
             --db-type mariadb \
             --db-host 127.0.0.1 \
             --db-root-username root \
@@ -100,6 +114,7 @@ jobs:
             --admin-password admin \
             --no-mariadb-socket
 
-          bench --site test_site install-app frappe_sso_guard
-          bench --site test_site set-config allow_tests true
-          bench --site test_site run-tests --app frappe_sso_guard
+          bench --site test-site.localhost install-app frappe_sso_guard
+          bench --site test-site.localhost set-config allow_tests true
+          : "${KEYCLOAK_PASSWORD:?Keycloak test credentials are required}"
+          bench --site test-site.localhost run-tests --app frappe_sso_guard

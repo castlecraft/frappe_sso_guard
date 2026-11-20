@@ -173,8 +173,7 @@ class KeycloakAdmin:
 
 
 class TestKeycloak(IntegrationTestCase):
-	"""The whole sign-in against a real Keycloak. It needs one running and its admin password in
-	KEYCLOAK_PASSWORD, so it skips in CI. docs/04 has how to run it.
+	"""Exercise real Keycloak sign-in and service tokens when KEYCLOAK_PASSWORD is set.
 
 	Frappe's requests run on their own connection, so what they read is committed and removed afterwards.
 	"""
@@ -185,10 +184,7 @@ class TestKeycloak(IntegrationTestCase):
 		cls.admin_password = os.environ.get("KEYCLOAK_PASSWORD")
 		if not cls.admin_password:
 			raise unittest.SkipTest("KEYCLOAK_PASSWORD is not set")
-		try:
-			requests.get(f"{KEYCLOAK_URL}/realms/master", timeout=5).raise_for_status()
-		except requests.RequestException as e:
-			raise unittest.SkipTest(f"No Keycloak at {KEYCLOAK_URL}") from e
+		requests.get(f"{KEYCLOAK_URL}/realms/master", timeout=5).raise_for_status()
 
 	def setUp(self):
 		# Through the document: get_single_value turns an empty date into the year 1.
@@ -216,6 +212,9 @@ class TestKeycloak(IntegrationTestCase):
 		for user in realm["users"]:
 			if user.get("email"):
 				user["email"] = f"test.{user['email']}"
+		# Each test recreates this issuer with new signing keys. Give it a fresh JWKS client,
+		# as a previous realm's unexpired key set can still be in its refresh cooldown.
+		self.enterContext(patch.dict(idp.JWKS_CACHE, clear=True))
 		self.secrets = commands.create_keycloak_realm(KEYCLOAK_URL, self.admin_password, realm, self.site_url)
 		self.admin = KeycloakAdmin(self.admin_password)
 		self.addCleanup(self.admin.delete_realm)
@@ -292,6 +291,72 @@ class TestKeycloak(IntegrationTestCase):
 		return browser
 
 	# Signing in
+
+	def test_client_credentials_authenticates_the_mapped_service(self):
+		client_id = "reporting-service"
+		secret = frappe.generate_hash(length=32)
+		audience = "frappe-api"
+		created = self.admin._call(
+			"POST",
+			"/clients",
+			json={
+				"clientId": client_id,
+				"secret": secret,
+				"publicClient": False,
+				"serviceAccountsEnabled": True,
+				"standardFlowEnabled": False,
+				"directAccessGrantsEnabled": False,
+				"fullScopeAllowed": False,
+				"protocolMappers": [
+					{
+						"name": "frappe-api",
+						"protocol": "openid-connect",
+						"protocolMapper": "oidc-audience-mapper",
+						"config": {"included.custom.audience": audience, "access.token.claim": "true"},
+					}
+				],
+			},
+		)
+		client_uuid = created.headers["Location"].rsplit("/", 1)[1]
+		subject = self.admin._call("GET", f"/clients/{client_uuid}/service-account-user").json()["id"]
+		response = requests.post(
+			f"{ISSUER}/protocol/openid-connect/token",
+			auth=(client_id, secret),
+			data={"grant_type": "client_credentials"},
+			timeout=30,
+		)
+		response.raise_for_status()
+		token = response.json()["access_token"]
+		config = {"sso_issuer": ISSUER, "sso_service_token_audience": audience}
+		read_config = frappe.get_site_config
+		with (
+			patch.dict(frappe.conf, config),
+			patch.object(
+				frappe, "get_site_config", lambda **kw: frappe._dict({**read_config(**kw), **config})
+			),
+		):
+			mapping = frappe.get_doc(
+				{
+					"doctype": "SSO Service Account",
+					"enabled": 1,
+					"client_id": client_id,
+					"subject": subject,
+					"user": ACTIVE,
+				}
+			).insert()
+			frappe.db.commit()
+			try:
+				reply = make_request(
+					target=get_test_client(use_cookies=False).get,
+					args=("/api/method/frappe.auth.get_logged_user",),
+					kwargs={"headers": {"Authorization": f"Bearer {token}"}, "buffered": True},
+					site=frappe.local.site,
+				)
+				self.assertEqual(reply.status_code, 200)
+				self.assertEqual(reply.json["message"], ACTIVE)
+			finally:
+				frappe.delete_doc("SSO Service Account", mapping.name, delete_permanently=True)
+				frappe.db.commit()
 
 	def test_sign_in_binds_the_account_and_opens_a_session_that_ends_at_the_set_time(self):
 		claims = []

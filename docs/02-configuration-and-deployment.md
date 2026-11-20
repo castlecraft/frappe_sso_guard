@@ -230,3 +230,14 @@ Each change is logged as **Team Added** or **Team Removed**, with the team, the 
 - The changes are in the SSO Identity Assignment Log, kept as the rest of it is, and not in the Team's version history.
 - Entra ID's Graph lookup for too many groups is not built, so those people are refused.
 
+## 13. Keycloak service accounts
+
+After updating an existing site, run `bench --site <site> migrate` to install the mapping DocType before enabling service tokens.
+
+1. In Keycloak, enable client authentication and service accounts on the calling client. Add the Frappe API audience to its access token with an audience mapper. Obtain the **service-account user's ID** from Keycloak for the subject (`sub`). The client ID appears in `azp`.
+2. In the site's configuration, set `sso_issuer` to the exact trusted realm URL and `sso_service_token_audience` to the API audience, for example `frappe-api`. An empty audience leaves the feature off. Use HTTPS for the issuer and API outside local development.
+3. Create a dedicated, enabled Frappe User and grant the roles needed for the integration. As a System Manager, open **SSO Service Account** in Desk and create an enabled record with the Keycloak client ID, service-account subject, and Frappe User. Saving the mapping pins it to the site's current issuer. Administrative, standard, and break-glass users are ineligible.
+4. Have the service obtain an access token from Keycloak with the `client_credentials` grant. Send it in the `Authorization: Bearer` header to `/api/method/frappe.auth.get_logged_user`. A successful response contains the mapped user. Frappe applies that user's IP restrictions and permissions to API requests.
+
+The mapping uses the signed issuer, client ID and subject. Email is optional. Disabling the mapping or Frappe User denies subsequent requests, including requests with an unexpired token. If Keycloak recreates the service account, verify its new subject and update the mapping. Keycloak client secrets stay with the caller.
+

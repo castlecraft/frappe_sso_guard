@@ -80,28 +80,40 @@ def get_openid_configuration(issuer_url: str) -> dict[str, Any]:
 	"""Fetches the OpenID Connect discovery document from the pinned issuer."""
 	cache_key = f"oidc_discovery_{issuer_url}"
 	cached = frappe.cache.get_value(cache_key)
-	if cached:
+	if isinstance(cached, dict) and cached.get("issuer") == issuer_url and _has_discovery_endpoints(cached):
 		return cached
 
 	discovery_url = issuer_url.rstrip("/") + DISCOVERY_PATH
 	resp = requests.get(discovery_url, timeout=HTTP_TIMEOUT_SECONDS)
 	resp.raise_for_status()
 	config = resp.json()
+	if not isinstance(config, dict):
+		raise ValueError("The discovery document must be a JSON object")
 	if config.get("issuer") != issuer_url:
 		raise ValueError("The discovery document names another issuer than the pinned one")
-	if not all(config.get(field) for field in ("authorization_endpoint", "token_endpoint", "jwks_uri")):
+	if not _has_discovery_endpoints(config):
 		raise ValueError("The discovery document lacks an endpoint the sign-in needs")
 
 	frappe.cache.set_value(cache_key, config, expires_in_sec=86400)
 	return config
 
 
+def _has_discovery_endpoints(config: dict) -> bool:
+	return all(
+		isinstance(endpoint, str) and endpoint.strip()
+		for endpoint in (
+			config.get("authorization_endpoint"),
+			config.get("token_endpoint"),
+			config.get("jwks_uri"),
+		)
+	)
+
+
 def get_jwk_client(jwks_uri: str) -> PyJWKClient:
 	"""Returns a cached PyJWKClient instance for token signature verification."""
 	if jwks_uri not in JWKS_CACHE:
-		JWKS_CACHE[jwks_uri] = PyJWKClient(
-			jwks_uri, cache_keys=True, max_cached_keys=16, timeout=HTTP_TIMEOUT_SECONDS
-		)
+		# Cache the expiring key set. Caching individual keys indefinitely would keep retired keys valid.
+		JWKS_CACHE[jwks_uri] = PyJWKClient(jwks_uri, timeout=HTTP_TIMEOUT_SECONDS)
 	return JWKS_CACHE[jwks_uri]
 
 
